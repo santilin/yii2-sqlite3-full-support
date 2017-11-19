@@ -1,0 +1,22 @@
+{
+    "name": "santilin/yii2-sqlite3-full-support",
+    "description": "Añade soporte extendido para el driver sqlite de Yii2",
+    "type": "yii2-extension",
+    "keywords": ["yii2","extension"],
+    "license": "LGPL-3.0+",
+    "authors": [
+        {
+            "name": "Santiago Capel Torres",
+            "email": "santi@noviolento.es"
+        }
+    ],
+    "require": {
+        "yiisoft/yii2": "~2.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "santilin\\Sqlite\\": "src/"
+        }
+    }
+}
+
