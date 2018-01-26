@@ -204,20 +204,32 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return trim($create_table);
 	}
 
-	private function getIndexSqls($tableName, $skipColumn = null) 
+	// not used so far
+	private function getDropIndexes($tableName)
+	{
+        $indexes = $this->db->createCommand("select name from SQLite_Master where tbl_name = '$tableName' and type='index'")->queryAll();
+		foreach( $indexes as $key => $index ) {
+			$return_indexes[] = $this->dropIndex($index);
+		}
+		return $return_indexes;
+	}
+	
+	private function getIndexSqls($tableName, $skipColumn = null, $newColumn = null) 
 	{
 		// Get all indexes on this table
         $indexes = $this->db->createCommand("select SQL from SQLite_Master where tbl_name = '$tableName' and type='index'")->queryAll();
         if( $skipColumn == null ) {
 			return array_column($indexes, "sql");
-		} else {
-			$return_indexes = [];
+		}
+		$quoted_skip_column = $this->db->quoteColumnName($skipColumn);
+		if ($newColumn == null ) {
+			// Skip indexes which contain this column
 			foreach( $indexes as $key => $index ) {
 				$code = (new SqlTokenizer($index["sql"]))->tokenize();
 				$pattern = (new SqlTokenizer('any CREATE any INDEX any ON any()'))->tokenize();
 				// Extract the list of fields of this index
 				if (!$code[0]->matches($pattern, 0, $firstMatchIndex, $lastMatchIndex)) {
-					throw new InvalidParamException("Table not found: $tableName");
+					throw new InvalidParamException("Index definition error: $index");
 				}
 				$found = false;
 				$indexFieldsDef = $code[0][$lastMatchIndex - 1];
@@ -225,7 +237,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				while( $indexFieldsDef->offsetExists($offset) ) {
 					$token = $indexFieldsDef[$offset];
 					if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER) {
-						if( (string)$token == $column || (string)$token == $quoted_column) {
+						if( (string)$token == $skipColumn || (string)$token == $quoted_skip_column) {
 							$found = true;
 							break;
 						}
@@ -236,6 +248,36 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					// If the index contains this column, do not add it 
 					$indexes[] = $index["sql"];
 				}
+			}
+		} else {
+			foreach( $indexes as $key => $index ) {
+				$code = (new SqlTokenizer($index["sql"]))->tokenize();
+				$pattern = (new SqlTokenizer('any CREATE any INDEX any ON any ()'))->tokenize();
+				// Extract the list of fields of this index
+				if (!$code[0]->matches($pattern, 0, $firstMatchIndex, $lastMatchIndex)) {
+					throw new InvalidParamException("Index definition error: $index");
+				}
+				$found = false;
+				$indexFieldsDef = $code[0][$lastMatchIndex - 1];
+				$new_index_def = '';
+				for( $i=0; $i<$lastMatchIndex-1; ++$i) {
+					$new_index_def .= (string)$code[0][$i] . " ";
+				}
+				$offset = 0;
+				while( $indexFieldsDef->offsetExists($offset) ) {
+					$token = $indexFieldsDef[$offset];
+					if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER) {
+						if( (string)$token == $skipColumn || (string)$token == $quoted_skip_column) {
+							$token = $this->db->quoteColumnName($newColumn);
+						}
+					} 
+					$new_index_def .= $token;
+					++$offset;
+				}
+				while( $code[0]->offsetExists($lastMatchIndex) ) {
+					$new_index_def .= (string)$code[0][$lastMatchIndex++] . " ";
+				}
+				$indexes[$key] = $this->dropIndex($code[0][2]) . ";$new_index_def";
 			}
 		}
 		return $indexes;
@@ -286,7 +328,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
 			$token = $fields_definitions_tokens[$offset++];
-			// These searchs could be done whit another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
+			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
 			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
 				$identifier = (string)$token;
 				if( $identifier == $column || $identifier == $quoted_column) {
@@ -353,22 +395,148 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE drop_column_$tableName";
-		return $return_queries;
-    }
+		return implode(";", $return_queries);
+	}
 
     /**
      * Builds a SQL statement for renaming a column.
-     * @param string $table the table whose column is to be renamed. The name will be properly quoted by the method.
+     * @param string $tableName the table whose column is to be renamed. The name will be properly quoted by the method.
      * @param string $oldName the old name of the column. The name will be properly quoted by the method.
      * @param string $newName the new name of the column. The name will be properly quoted by the method.
-     * @return string the SQL statement for renaming a DB column.
-     * @throws NotSupportedException this is not supported by SQLite
+     * @return string the SQL statements for changing the definition of a column.
+     * @author santilin <software@noviolento.es>
      */
-    public function renameColumn($table, $oldName, $newName)
+    public function renameColumn($tableName, $oldName, $newName)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
-    }
+        $return_queries = [];
+		/// @todo warn about triggers
+		/// @todo get create table additional info
+		/// @todo change column name in all the constraints
+		/// @todo change column name in the references part of the other tables 
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
+        $ddl_fields_def = '';
+        $column_found = false;
+        $sql_fields_to_insert = [];
+        $quoted_old_name = $this->db->quoteColumnName($oldName);
+        $quoted_new_name = $this->db->quoteColumnName($newName);
+        $quoted_tablename = $this->db->quoteTableName($tableName);
+        $offset = 0;
+        // Traverse the tokens looking for either an identifier (field name) or a foreign key
+        while( $fields_definitions_tokens->offsetExists($offset)) {
+			$token = $fields_definitions_tokens[$offset++];
+			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
+			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
+				$identifier = (string)$token;
+				$sql_fields_to_insert[] = $identifier;
+				if( $identifier == $oldName || $identifier == $quoted_old_name) {
+					// found column definition for $oldName, 
+					$token = $quoted_new_name;
+					$column_found = true;
+				}
+			} else if( $token->type == \yii\db\SqlToken::TYPE_KEYWORD) {
+				$keyword = (string)$token;
+				if( $keyword == "CONSTRAINT") {
+					$offset++;
+					$token = $this->renameColumnOnConstraint($fields_definitions_tokens, $offset, $oldName, $newName);
+				} else if ($keyword == "FOREIGN" ) {
+					$offset--;
+					$token = $this->renameColumnOnConstraint($fields_definitions_tokens, $offset, $oldName, $newName);
+				}
+			}
+			$ddl_fields_def .= $token . " ";
+			$ddl_fields_def .= $this->copyUntilComma($fields_definitions_tokens, $offset);
+		}
+		if (!$column_found) {
+			throw new InvalidParamException("column '$oldName' not found in table '$tableName'");
+		}
+		$schema_version = intval($this->db->createCommand("PRAGMA schema_version")->queryScalar());
+		$schema_version++;
+		$foreign_keys_state = $this->foreignKeysState();
+ 		$return_queries[] = "SAVEPOINT rename_column_$tableName";
+		$return_queries[] = "PRAGMA foreign_keys = 0";
+		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "PRAGMA writable_schema=ON";
+		$return_queries[] = "UPDATE sqlite_master SET sql=" . $this->db->quoteValue("CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")") . " WHERE type=" . $this->db->quoteValue("table") . " AND name=" . $this->db->quoteValue($tableName);
+		$return_queries[] = "PRAGMA schema_version = $schema_version";
+		$return_queries[] = "PRAGMA writable_schema=OFF";
+		// Create indexes for the new table
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $oldName, $newName));
+		/// @todo add views
+		$return_queries[] = "PRAGMA triggers = YES";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
+		$return_queries[] = "PRAGMA integrity_check";
+ 		$return_queries[] = "RELEASE rename_column_$tableName";
+		foreach( $return_queries as $query) {
+			echo "$query\n";
+		}
+		return implode(";", $return_queries);
+	}
+	
+	/// copy until the next ,
+	private function copyUntilComma($fields_definitions_tokens, &$offset)
+	{
+		return $this->copyOrSkipUntilComma($fields_definitions_tokens, $offset, false);
+	}
+	
+	/// copy until the next ,
+	private function skipUntilComma($fields_definitions_tokens, &$offset)
+	{
+		return $this->copyOrSkipUntilComma($fields_definitions_tokens, $offset, true);
+	}
 
+	/// Skip or keep until the next ,
+	private function copyOrSkipUntilComma($fields_definitions_tokens, &$offset, $skipping = false)
+	{
+		$ret = '';
+		while( $fields_definitions_tokens->offsetExists($offset) ) {
+			$skip_token = $fields_definitions_tokens[$offset];
+			if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
+				$ret .= ",\n";
+				++$offset;
+				break;
+			} else if (!$skipping) {
+				$ret .= (string)$skip_token . " ";
+			}
+			++$offset;
+		}
+		return $ret;
+	}
+
+	/// @todo replace field name in REFERENCES clauses
+	/// @todo support rest of constraints: PRIMARY KEY, UNIQUE, ...
+	private function renameColumnOnConstraint($fields_definitions_tokens, &$offset, $oldColumn, $newColumn)
+	{
+		$ret = '';
+		$quoted_old_column = $this->db->quoteColumnName($oldColumn);
+		$quoted_new_column = $this->db->quoteColumnName($newColumn);
+		$pattern_foreign_key = (new SqlTokenizer('FOREIGN any KEY any ()'))->tokenize();
+		if ($fields_definitions_tokens->matches($pattern_foreign_key, $offset, $firstMatchIndex, $lastMatchIndex)) {
+			while( $offset < $lastMatchIndex - 1 ) {
+				$ret .= $fields_definitions_tokens[$offset++] . " ";
+			}
+			$token = $fields_definitions_tokens[$offset];
+			$str_token = $token->getSql();
+			$fields = explode(",",$str_token);
+			foreach ($fields as $field) {
+				if ($field == $oldColumn || $field == $quoted_old_column ) {
+					$str_token = $quoted_new_column;
+				}
+				$ret .= $str_token;
+				$offset++;
+				if( $fields_definitions_tokens->offsetExists($offset) ) {
+					$token = $fields_definitions_tokens[$offset];
+					$str_token = $token->content;
+				} else { 
+					throw new \Exception("Invalid foreign key definition");
+				}
+			}
+			$ret .= ")";
+			$offset++;
+		}
+		return $ret;
+	}
+
+	
     /**
      * Builds a SQL statement for adding a foreign key constraint to an existing table.
      * The method will properly quote the table and column names.
@@ -382,7 +550,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * @param string $delete the ON DELETE option. Most DBMS support these options: RESTRICT, CASCADE, NO ACTION, SET DEFAULT, SET NULL
      * @param string $update the ON UPDATE option. Most DBMS support these options: RESTRICT, CASCADE, NO ACTION, SET DEFAULT, SET NULL
      * @return string the SQL statement for adding a foreign key constraint to an existing table.
-     * @throws NotSupportedException this is not supported by SQLite
      */
     public function addForeignKey($name, $tableName, $columns, $refTable, $refColumns, $delete = null, $update = null)
     {
@@ -414,8 +581,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE add_foreign_key_to_$tableName";
-		return $return_queries;
-    }
+		return implode(";", $return_queries);
+	}
 
     /**
      * Builds a SQL statement for dropping a foreign key constraint.
@@ -450,7 +617,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * column type (if any) into the physical one. Anything that is not recognized as abstract type will be kept
      * in the generated SQL. For example, 'string' will be turned into 'varchar(255)', while 'string not null'
      * will become 'varchar(255) not null'.
-     * @return string the SQL statement for changing the definition of a column.
+     * @return array the SQL statements for changing the definition of a column.
      * @author santilin <software@noviolento.es>
      */
     public function alterColumn($tableName, $column, $type)
@@ -472,7 +639,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
 			$token = $fields_definitions_tokens[$offset++];
-			// These searchs could be done whit another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
+			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
 			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
 				$identifier = (string)$token;
 				$sql_fields_to_insert[] = $identifier;
@@ -525,8 +692,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE alter_column_$tableName";
-		return $return_queries;
-    }
+		return implode(";", $return_queries);
+	}
 
     /**
      * Builds a SQL statement for adding a primary key constraint to an existing table.

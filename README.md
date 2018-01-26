@@ -1,14 +1,16 @@
 # yii2-sqlite3-full-support
 
-Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2
+Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the procedures stated at https://www.sqlite.org/lang_altertable.html#otheralter
 
 # Done
 - Drop column
 - Alter column
 - Add foreign key
 
-# Todo
+# Doing
 - Rename column
+
+# Todo
 - Drop foreign key
 - Add primary key
 - Drop Primary key
