@@ -209,7 +209,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 	{
         $indexes = $this->db->createCommand("select name from SQLite_Master where tbl_name = '$tableName' and type='index'")->queryAll();
 		foreach( $indexes as $key => $index ) {
-			$return_indexes[] = $this->dropIndex($index);
+			$return_indexes[] = $this->dropIndex($index, $tableName);
 		}
 		return $return_indexes;
 	}
@@ -246,7 +246,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				}
 				if (!$found) {
 					// If the index contains this column, do not add it 
-					$indexes[] = $index["sql"];
+					$indexes[$key] = $index["sql"];
 				}
 			}
 		} else {
@@ -277,7 +277,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				while( $code[0]->offsetExists($lastMatchIndex) ) {
 					$new_index_def .= (string)$code[0][$lastMatchIndex++] . " ";
 				}
-				$indexes[$key] = $this->dropIndex($code[0][2]) . ";$new_index_def";
+				$indexes[$key] = $this->dropIndex($code[0][2], $tableName) . ";$new_index_def";
 			}
 		}
 		return $indexes;
@@ -317,7 +317,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $return_queries = [];
 		/// @todo warn about triggers
 		/// @todo get create table additional info
-		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tablename);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
         $ddl_fields_def = '';
         $sql_fields_to_insert = [];
         $skipping = false;
@@ -466,9 +466,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "PRAGMA integrity_check";
  		$return_queries[] = "RELEASE rename_column_$tableName";
-		foreach( $return_queries as $query) {
-			echo "$query\n";
-		}
 		return implode(";", $return_queries);
 	}
 	
