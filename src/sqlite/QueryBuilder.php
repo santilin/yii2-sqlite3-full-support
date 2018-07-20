@@ -257,13 +257,17 @@ class QueryBuilder extends \yii\db\QueryBuilder
         return $code[0][$lastMatchIndex - 1];
 	}
 	
+	private function foreignKeysState()
+	{
+		return $this->db->createCommand("PRAGMA foreign_keys")->queryScalar();
+	}
+	
     /**
      * Builds a SQL statement for dropping a DB column.
      * @param string $table the table whose column is to be dropped. The name will be properly quoted by the method.
      * @param string $column the name of the column to be dropped. The name will be properly quoted by the method.
      * @return string the SQL statement for dropping a DB column.
-     * @throws NotSupportedException this is not supported by SQLite
-     * @autohr santilin <software@noviolento.es>
+     * @author santilin <software@noviolento.es>
      */
     public function dropColumn($tableName, $column)
     {
@@ -271,7 +275,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $return_queries = [];
 		/// @todo warn about triggers
 		/// @todo get create table additional info
-		$fields_definitions_tokens = getFieldDefinitionsTokens($tablename);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tablename);
         $ddl_fields_def = '';
         $sql_fields_to_insert = [];
         $skipping = false;
@@ -333,8 +337,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
+		$foreign_keys_state = $this->foreignKeysState();
 		$return_queries[] = "SAVEPOINT drop_column_$tableName";
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		$return_queries[] = "PRAGMA foreign_keys = 0";
 		$return_queries[] = "PRAGMA triggers = NO";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$tableName") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -346,7 +351,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $column));
 		/// @todo add views
 		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = YES";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE drop_column_$tableName";
 		return $return_queries;
     }
@@ -395,8 +400,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $delete != null ) {
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
+		$foreign_keys_state = $this->foreignKeysState();
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tableName";
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		$return_queries[] = "PRAGMA foreign_keys = 0";
 		$return_queries[] = "PRAGMA triggers = NO";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$tableName") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -406,7 +412,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
 		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = YES";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE add_foreign_key_to_$tableName";
 		return $return_queries;
     }
@@ -438,18 +444,88 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
     /**
      * Builds a SQL statement for changing the definition of a column.
-     * @param string $table the table whose column is to be changed. The table name will be properly quoted by the method.
+     * @param string $tableName the table whose column is to be changed. The table name will be properly quoted by the method.
      * @param string $column the name of the column to be changed. The name will be properly quoted by the method.
      * @param string $type the new column type. The [[getColumnType()]] method will be invoked to convert abstract
      * column type (if any) into the physical one. Anything that is not recognized as abstract type will be kept
      * in the generated SQL. For example, 'string' will be turned into 'varchar(255)', while 'string not null'
      * will become 'varchar(255) not null'.
      * @return string the SQL statement for changing the definition of a column.
-     * @throws NotSupportedException this is not supported by SQLite
+     * @author santilin <software@noviolento.es>
      */
-    public function alterColumn($table, $column, $type)
+    public function alterColumn($tableName, $column, $type)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+        // Simulate ALTER TABLE ... CHANGE COLUMN ...
+        $return_queries = [];
+        /// @todo if the change consists only in the default value or the null/not null constraint, do it the easy way
+		/// @todo warn about triggers
+		/// @todo get create table additional info
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
+        $ddl_fields_def = '';
+        $sql_fields_to_insert = [];
+        $skipping = false;
+        $column_found = false;
+        $adding_column_type = false;
+        $quoted_column = $this->db->quoteColumnName($column);
+        $quoted_tablename = $this->db->quoteTableName($tableName);
+        $offset = 0;
+        // Traverse the tokens looking for either an identifier (field name) or a foreign key
+        while( $fields_definitions_tokens->offsetExists($offset)) {
+			$token = $fields_definitions_tokens[$offset++];
+			// These searchs could be done whit another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
+			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
+				$identifier = (string)$token;
+				$sql_fields_to_insert[] = $identifier;
+				if( $identifier == $column || $identifier == $quoted_column) {
+					// found column definition for $column, set skipping on up until the next ,
+					$ddl_fields_def .= "$identifier $type";
+					$column_found = $skipping = true;
+				} else {
+					// another column definition, keep and add to list of fields to select back
+					$skipping = false;
+				}
+			} else if( $token->type == \yii\db\SqlToken::TYPE_KEYWORD) {
+			} else {
+				/// @todo is there anything else. Look it up in the sqlite docs
+				die("Unexpected: $token");
+			}
+			if( !$skipping ) {
+				$ddl_fields_def .= $token . " ";
+			}
+			// Skip or keep until the next ,
+			while( $fields_definitions_tokens->offsetExists($offset) ) {
+				$skip_token = $fields_definitions_tokens[$offset];
+				if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
+					$ddl_fields_def .= ",\n";
+					++$offset;
+					$skipping = false;
+					break;
+				} else if( !$skipping ) {
+					$ddl_fields_def .= (string)$skip_token . " ";
+				}
+				++$offset;
+			}
+		}
+		if (!$column_found) {
+			throw new InvalidParamException("column '$column' not found in table '$tableName'");
+		}
+		$foreign_keys_state = $this->foreignKeysState();
+		$return_queries[] = "SAVEPOINT alter_column_$tableName";
+		$return_queries[] = "PRAGMA foreign_keys = 0";
+		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$tableName") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "DROP TABLE $quoted_tablename";
+		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$tableName");
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$tableName");
+			
+		// Create indexes for the new table
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
+		/// @todo add views
+		$return_queries[] = "PRAGMA triggers = YES";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
+		$return_queries[] = "RELEASE alter_column_$tableName";
+		return $return_queries;
     }
 
     /**
