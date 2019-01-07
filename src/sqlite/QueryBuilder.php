@@ -32,6 +32,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         Schema::TYPE_CHAR => 'char(1)',
         Schema::TYPE_STRING => 'varchar(255)',
         Schema::TYPE_TEXT => 'text',
+        Schema::TYPE_TINYINT => 'tinyint',
         Schema::TYPE_SMALLINT => 'smallint',
         Schema::TYPE_INTEGER => 'integer',
         Schema::TYPE_BIGINT => 'bigint',
@@ -47,11 +48,63 @@ class QueryBuilder extends \yii\db\QueryBuilder
         Schema::TYPE_MONEY => 'decimal(19,4)',
     ];
 
-    /**
-     * @inheritdoc
-     */
-    protected $likeEscapeCharacter = '\\';
 
+    /**
+     * {@inheritdoc}
+     */
+    protected function defaultExpressionBuilders()
+    {
+        return array_merge(parent::defaultExpressionBuilders(), [
+            'yii\db\conditions\LikeCondition' => 'yii\db\sqlite\conditions\LikeConditionBuilder',
+            'yii\db\conditions\InCondition' => 'yii\db\sqlite\conditions\InConditionBuilder',
+        ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     * @see https://stackoverflow.com/questions/15277373/sqlite-upsert-update-or-insert/15277374#15277374
+     */
+    public function upsert($table, $insertColumns, $updateColumns, &$params)
+    {
+        /** @var Constraint[] $constraints */
+        list($uniqueNames, $insertNames, $updateNames) = $this->prepareUpsertColumns($table, $insertColumns, $updateColumns, $constraints);
+        if (empty($uniqueNames)) {
+            return $this->insert($table, $insertColumns, $params);
+        }
+
+        list(, $placeholders, $values, $params) = $this->prepareInsertValues($table, $insertColumns, $params);
+        $insertSql = 'INSERT OR IGNORE INTO ' . $this->db->quoteTableName($table)
+            . (!empty($insertNames) ? ' (' . implode(', ', $insertNames) . ')' : '')
+            . (!empty($placeholders) ? ' VALUES (' . implode(', ', $placeholders) . ')' : $values);
+        if ($updateColumns === false) {
+            return $insertSql;
+        }
+
+        $updateCondition = ['or'];
+        $quotedTableName = $this->db->quoteTableName($table);
+        foreach ($constraints as $constraint) {
+            $constraintCondition = ['and'];
+            foreach ($constraint->columnNames as $name) {
+                $quotedName = $this->db->quoteColumnName($name);
+                $constraintCondition[] = "$quotedTableName.$quotedName=(SELECT $quotedName FROM `EXCLUDED`)";
+            }
+            $updateCondition[] = $constraintCondition;
+        }
+        if ($updateColumns === true) {
+            $updateColumns = [];
+            foreach ($updateNames as $name) {
+                $quotedName = $this->db->quoteColumnName($name);
+                if (strrpos($quotedName, '.') === false) {
+                    $quotedName = "(SELECT $quotedName FROM `EXCLUDED`)";
+                }
+                $updateColumns[$name] = new Expression($quotedName);
+            }
+        }
+        $updateSql = 'WITH "EXCLUDED" (' . implode(', ', $insertNames)
+            . ') AS (' . (!empty($placeholders) ? 'VALUES (' . implode(', ', $placeholders) . ')' : ltrim($values, ' ')) . ') '
+            . $this->update($table, $updateColumns, $updateCondition, $params);
+        return "$updateSql; $insertSql;";
+    }
 
     /**
      * Generates a batch INSERT SQL statement.
@@ -73,7 +126,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * @param array|\Generator $rows the rows to be batch inserted into the table
      * @return string the batch INSERT SQL statement
      */
-    public function batchInsert($table, $columns, $rows)
+    public function batchInsert($table, $columns, $rows, &$params = [])
     {
         if (empty($rows)) {
             return '';
@@ -82,8 +135,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
         // SQLite supports batch insert natively since 3.7.11
         // http://www.sqlite.org/releaselog/3_7_11.html
         $this->db->open(); // ensure pdo is not null
-        if (version_compare($this->db->pdo->getAttribute(\PDO::ATTR_SERVER_VERSION), '3.7.11', '>=')) {
-            return parent::batchInsert($table, $columns, $rows);
+        if (version_compare($this->db->getServerVersion(), '3.7.11', '>=')) {
+            return parent::batchInsert($table, $columns, $rows, $params);
         }
 
         $schema = $this->db->getSchema();
@@ -97,18 +150,20 @@ class QueryBuilder extends \yii\db\QueryBuilder
         foreach ($rows as $row) {
             $vs = [];
             foreach ($row as $i => $value) {
-                if (!is_array($value) && isset($columnSchemas[$columns[$i]])) {
+                if (isset($columnSchemas[$columns[$i]])) {
                     $value = $columnSchemas[$columns[$i]]->dbTypecast($value);
                 }
                 if (is_string($value)) {
                     $value = $schema->quoteValue($value);
                 } elseif (is_float($value)) {
                     // ensure type cast always has . as decimal separator in all locales
-                    $value = str_replace(',', '.', (string) $value);
+                    $value = StringHelper::floatToString($value);
                 } elseif ($value === false) {
                     $value = 0;
                 } elseif ($value === null) {
                     $value = 'NULL';
+                } elseif ($value instanceof ExpressionInterface) {
+                    $value = $this->buildExpression($value, $params);
                 }
                 $vs[] = $value;
             }
@@ -134,7 +189,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * @param mixed $value the value for the primary key of the next new row inserted. If this is not set,
      * the next new row's primary key will have a value 1.
      * @return string the SQL statement for resetting sequence
-     * @throws InvalidParamException if the table does not exist or there is no sequence associated with the table.
+     * @throws InvalidArgumentException if the table does not exist or there is no sequence associated with the table.
      */
     public function resetSequence($tableName, $value = null)
     {
@@ -153,10 +208,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
             return "UPDATE sqlite_sequence SET seq='$value' WHERE name='{$table->name}'";
         } elseif ($table === null) {
-            throw new InvalidParamException("Table not found: $tableName");
+            throw new InvalidArgumentException("Table not found: $tableName");
         }
 
-        throw new InvalidParamException("There is not sequence associated with table '$tableName'.'");
+        throw new InvalidArgumentException("There is not sequence associated with table '$tableName'.'");
     }
 
     /**
@@ -283,6 +338,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $indexes;
 	}
 
+
+	private function unquoteTableName($tableName)
+	{
+		return $this->db->schema->unquoteSimpleTableName( $this->db->quoteSql( $tableName ));
+	}
+	
+
     /*
      * @return SqlToken the parsed fields definition part of the create table statement for $tableName
      */ 
@@ -317,13 +379,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $return_queries = [];
 		/// @todo warn about triggers
 		/// @todo get create table additional info
-		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
         $ddl_fields_def = '';
         $sql_fields_to_insert = [];
         $skipping = false;
         $column_found = false;
         $quoted_column = $this->db->quoteColumnName($column);
-        $quoted_tablename = $this->db->quoteTableName($tableName);
+        $quoted_tablename = $this->db->quoteSql($tableName);
+        $unquoted_tablename = $this->unquoteTableName($tableName);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
         $offset = 0;
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
@@ -380,21 +443,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT drop_column_$tableName";
+		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
 		$return_queries[] = "PRAGMA triggers = NO";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$tableName") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$tableName");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$tableName");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 			
 		// Indexes. Skip any index referencing $column
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $column));
 		/// @todo add views
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
-		$return_queries[] = "RELEASE drop_column_$tableName";
+		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
 		return implode(";", $return_queries);
 	}
 
@@ -413,14 +476,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		/// @todo get create table additional info
 		/// @todo change column name in all the constraints
 		/// @todo change column name in the references part of the other tables 
-		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
         $ddl_fields_def = '';
         $column_found = false;
         $sql_fields_to_insert = [];
         $quoted_old_name = $this->db->quoteColumnName($oldName);
         $quoted_new_name = $this->db->quoteColumnName($newName);
-        $quoted_tablename = $this->db->quoteTableName($tableName);
-        $offset = 0;
+        $quoted_tablename = $this->db->quoteSql($tableName);
+        $unquoted_tablename = $this->unquoteTableName($tableName);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);        $offset = 0;
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
 			$token = $fields_definitions_tokens[$offset++];
@@ -452,11 +515,11 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$schema_version = intval($this->db->createCommand("PRAGMA schema_version")->queryScalar());
 		$schema_version++;
 		$foreign_keys_state = $this->foreignKeysState();
- 		$return_queries[] = "SAVEPOINT rename_column_$tableName";
+ 		$return_queries[] = "SAVEPOINT rename_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
 		$return_queries[] = "PRAGMA triggers = NO";
 		$return_queries[] = "PRAGMA writable_schema=ON";
-		$return_queries[] = "UPDATE sqlite_master SET sql=" . $this->db->quoteValue("CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")") . " WHERE type=" . $this->db->quoteValue("table") . " AND name=" . $this->db->quoteValue($tableName);
+		$return_queries[] = "UPDATE sqlite_master SET sql=" . $this->db->quoteValue("CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")") . " WHERE type=" . $this->db->quoteValue("table") . " AND name=" . $this->db->quoteValue($unquoted_tablename);
 		$return_queries[] = "PRAGMA schema_version = $schema_version";
 		$return_queries[] = "PRAGMA writable_schema=OFF";
 		// Create indexes for the new table
@@ -465,7 +528,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "PRAGMA integrity_check";
- 		$return_queries[] = "RELEASE rename_column_$tableName";
+ 		$return_queries[] = "RELEASE rename_column_$unquoted_tablename";
 		return implode(";", $return_queries);
 	}
 	
@@ -554,8 +617,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		/// @todo warn about triggers
 		/// @todo get create table additional info
 		$return_queries = [];
+        $unquoted_tablename = $this->unquoteTableName($tableName);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
         $quoted_tablename = $this->db->quoteTableName($tableName);
-		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteColumnName($name) . " FOREIGN KEY (" . join(",", (array)$columns) . ") REFERENCES $refTable(" . join(",", (array)$refColumns) . ")";
 		if( $update != null ) {
@@ -565,19 +629,19 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tableName";
+		$return_queries[] = "SAVEPOINT add_foreign_key_to_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
 		$return_queries[] = "PRAGMA triggers = NO";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$tableName") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName("temp_$tableName");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$tableName");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
-		$return_queries[] = "RELEASE add_foreign_key_to_$tableName";
+		$return_queries[] = "RELEASE add_foreign_key_to_$unquoted_tablename";
 		return implode(";", $return_queries);
 	}
 
@@ -605,7 +669,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
         return 'ALTER TABLE ' . $this->db->quoteTableName($table) . ' RENAME TO ' . $this->db->quoteTableName($newName);
     }
-
+    
     /**
      * Builds a SQL statement for changing the definition of a column.
      * @param string $tableName the table whose column is to be changed. The table name will be properly quoted by the method.
@@ -624,15 +688,15 @@ class QueryBuilder extends \yii\db\QueryBuilder
         /// @todo if the change consists only in the default value or the null/not null constraint, do it the easy way
 		/// @todo warn about triggers
 		/// @todo get create table additional info
-		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($tableName);
         $ddl_fields_def = '';
         $sql_fields_to_insert = [];
         $skipping = false;
         $column_found = false;
         $adding_column_type = false;
+        $unquoted_tablename = $this->unquoteTableName($tableName);
+        $quoted_tablename = $this->db->quoteSql($tableName);
         $quoted_column = $this->db->quoteColumnName($column);
-        $quoted_tablename = $this->db->quoteTableName($tableName);
-        $offset = 0;
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);        $offset = 0;
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
 			$token = $fields_definitions_tokens[$offset++];
@@ -674,21 +738,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT alter_column_$tableName";
+		$return_queries[] = "SAVEPOINT alter_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
 		$return_queries[] = "PRAGMA triggers = NO";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$tableName") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$tableName");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$tableName");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 			
 		// Create indexes for the new table
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
 		$return_queries[] = "PRAGMA triggers = YES";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
-		$return_queries[] = "RELEASE alter_column_$tableName";
+		$return_queries[] = "RELEASE alter_column_$unquoted_tablename";
 		return implode(";", $return_queries);
 	}
 
@@ -812,7 +876,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function buildLimit($limit, $offset)
     {
@@ -832,53 +896,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     }
 
     /**
-     * @inheritdoc
-     * @throws NotSupportedException if `$columns` is an array
-     */
-    protected function buildSubqueryInCondition($operator, $columns, $values, &$params)
-    {
-        if (is_array($columns)) {
-            throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
-        }
-
-        return parent::buildSubqueryInCondition($operator, $columns, $values, $params);
-    }
-
-    /**
-     * Builds SQL for IN condition.
-     *
-     * @param string $operator
-     * @param array $columns
-     * @param array $values
-     * @param array $params
-     * @return string SQL
-     */
-    protected function buildCompositeInCondition($operator, $columns, $values, &$params)
-    {
-        $quotedColumns = [];
-        foreach ($columns as $i => $column) {
-            $quotedColumns[$i] = strpos($column, '(') === false ? $this->db->quoteColumnName($column) : $column;
-        }
-        $vss = [];
-        foreach ($values as $value) {
-            $vs = [];
-            foreach ($columns as $i => $column) {
-                if (isset($value[$column])) {
-                    $phName = self::PARAM_PREFIX . count($params);
-                    $params[$phName] = $value[$column];
-                    $vs[] = $quotedColumns[$i] . ($operator === 'IN' ? ' = ' : ' != ') . $phName;
-                } else {
-                    $vs[] = $quotedColumns[$i] . ($operator === 'IN' ? ' IS' : ' IS NOT') . ' NULL';
-                }
-            }
-            $vss[] = '(' . implode($operator === 'IN' ? ' AND ' : ' OR ', $vs) . ')';
-        }
-
-        return '(' . implode($operator === 'IN' ? ' OR ' : ' AND ', $vss) . ')';
-    }
-
-    /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function build($query, $params = [])
     {
@@ -900,15 +918,15 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
         if (!empty($query->orderBy)) {
             foreach ($query->orderBy as $expression) {
-                if ($expression instanceof Expression) {
-                    $params = array_merge($params, $expression->params);
+                if ($expression instanceof ExpressionInterface) {
+                    $this->buildExpression($expression, $params);
                 }
             }
         }
         if (!empty($query->groupBy)) {
             foreach ($query->groupBy as $expression) {
-                if ($expression instanceof Expression) {
-                    $params = array_merge($params, $expression->params);
+                if ($expression instanceof ExpressionInterface) {
+                    $this->buildExpression($expression, $params);
                 }
             }
         }
@@ -922,7 +940,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function buildUnion($unions, &$params)
     {
