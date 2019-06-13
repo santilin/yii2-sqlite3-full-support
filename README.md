@@ -13,18 +13,19 @@ Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the p
 - Drop foreign key
 - Drop Primary key
 - Drop Unique
+- Drop Check
+- Drop default value
+- Drop comment from column
+- Drop comment from table
 
 # Doing
 
 # Todo
 - Add Unique
 - Add Check
-- Drop Check
 - Add default value
 - Add comment on column
 - Add Comment on table
-- Drop comment from column
-- Drop comment from table
 - buildSubqueryInCondition
 
 
