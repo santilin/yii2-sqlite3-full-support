@@ -650,12 +650,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * @param string $name the name of the foreign key constraint to be dropped. The name will be properly quoted by the method.
      * @param string $table the table whose foreign is to be dropped. The name will be properly quoted by the method.
      * @return string the SQL statement for dropping a foreign key constraint.
-     * @throws NotSupportedException this is not supported by SQLite
      */
     public function dropForeignKey($name, $table)
     {
 		return "";
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
     }
 
     /**
@@ -796,11 +794,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * @param string $name the name of the primary key constraint to be removed.
      * @param string $table the table that the primary key constraint will be removed from.
      * @return string the SQL statement for removing a primary key constraint from an existing table.
-     * @throws NotSupportedException this is not supported by SQLite
      */
     public function dropPrimaryKey($name, $table)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		retun "";
     }
 
     /**
@@ -814,11 +811,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
     /**
      * @inheritDoc
-     * @throws NotSupportedException this is not supported by SQLite.
      */
     public function dropUnique($name, $table)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		return "";
     }
 
     /**
@@ -832,11 +828,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
     /**
      * @inheritDoc
-     * @throws NotSupportedException this is not supported by SQLite.
      */
     public function dropCheck($name, $table)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		return "";
     }
 
     /**
@@ -850,11 +845,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
     /**
      * @inheritDoc
-     * @throws NotSupportedException this is not supported by SQLite.
      */
     public function dropDefaultValue($name, $table)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		return "";
     }
 
     /**
@@ -879,22 +873,20 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
     /**
      * @inheritdoc
-     * @throws NotSupportedException
      * @since 2.0.8
      */
     public function dropCommentFromColumn($table, $column)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		return "";
     }
 
     /**
      * @inheritdoc
-     * @throws NotSupportedException
      * @since 2.0.8
      */
     public function dropCommentFromTable($table)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		return "";
     }
 
     /**

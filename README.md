@@ -9,15 +9,17 @@ Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the p
 - Rename column
 - Add primary key
 
+# Not done yet but ignored (doesn't throw)
+- Drop foreign key
+- Drop Primary key
+- Drop Unique
+
 # Doing
 
 # Todo
 - Add Unique
 - Add Check
-- Drop Unique
 - Drop Check
-- Drop foreign key
-- Drop Primary key
 - Add default value
 - Add comment on column
 - Add Comment on table
