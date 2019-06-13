@@ -268,8 +268,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		return $return_indexes;
 	}
-	
-	private function getIndexSqls($tableName, $skipColumn = null, $newColumn = null) 
+
+	private function getIndexSqls($tableName, $skipColumn = null, $newColumn = null)
 	{
 		// Get all indexes on this table
         $indexes = $this->db->createCommand("select SQL from SQLite_Master where tbl_name = '$tableName' and type='index'")->queryAll();
@@ -300,7 +300,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					++$offset;
 				}
 				if (!$found) {
-					// If the index contains this column, do not add it 
+					// If the index contains this column, do not add it
 					$indexes[$key] = $index["sql"];
 				}
 			}
@@ -325,7 +325,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 						if( (string)$token == $skipColumn || (string)$token == $quoted_skip_column) {
 							$token = $this->db->quoteColumnName($newColumn);
 						}
-					} 
+					}
 					$new_index_def .= $token;
 					++$offset;
 				}
@@ -343,11 +343,11 @@ class QueryBuilder extends \yii\db\QueryBuilder
 	{
 		return $this->db->schema->unquoteSimpleTableName( $this->db->quoteSql( $tableName ));
 	}
-	
+
 
     /*
      * @return SqlToken the parsed fields definition part of the create table statement for $tableName
-     */ 
+     */
     private function getFieldDefinitionsTokens($tableName)
     {
 		$create_table = $this->getCreateTable($tableName);
@@ -360,12 +360,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
         // Get the fields definition and foreign keys tokens
         return $code[0][$lastMatchIndex - 1];
 	}
-	
+
 	private function foreignKeysState()
 	{
 		return $this->db->createCommand("PRAGMA foreign_keys")->queryScalar();
 	}
-	
+
     /**
      * Builds a SQL statement for dropping a DB column.
      * @param string $table the table whose column is to be dropped. The name will be properly quoted by the method.
@@ -451,7 +451,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
-			
+
 		// Indexes. Skip any index referencing $column
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $column));
 		/// @todo add views
@@ -471,11 +471,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function renameColumn($tableName, $oldName, $newName)
     {
+        // Simulate ALTER TABLE ... RENAME COLUMN ...
         $return_queries = [];
 		/// @todo warn about triggers
 		/// @todo get create table additional info
 		/// @todo change column name in all the constraints
-		/// @todo change column name in the references part of the other tables 
+		/// @todo change column name in the references part of the other tables
         $ddl_fields_def = '';
         $column_found = false;
         $sql_fields_to_insert = [];
@@ -492,7 +493,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				$identifier = (string)$token;
 				$sql_fields_to_insert[] = $identifier;
 				if( $identifier == $oldName || $identifier == $quoted_old_name) {
-					// found column definition for $oldName, 
+					// found column definition for $oldName,
 					$token = $quoted_new_name;
 					$column_found = true;
 				}
@@ -531,13 +532,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
  		$return_queries[] = "RELEASE rename_column_$unquoted_tablename";
 		return implode(";", $return_queries);
 	}
-	
+
 	/// copy until the next ,
 	private function copyUntilComma($fields_definitions_tokens, &$offset)
 	{
 		return $this->copyOrSkipUntilComma($fields_definitions_tokens, $offset, false);
 	}
-	
+
 	/// copy until the next ,
 	private function skipUntilComma($fields_definitions_tokens, &$offset)
 	{
@@ -586,7 +587,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				if( $fields_definitions_tokens->offsetExists($offset) ) {
 					$token = $fields_definitions_tokens[$offset];
 					$str_token = $token->content;
-				} else { 
+				} else {
 					throw new \Exception("Invalid foreign key definition");
 				}
 			}
@@ -596,7 +597,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $ret;
 	}
 
-	
+
     /**
      * Builds a SQL statement for adding a foreign key constraint to an existing table.
      * The method will properly quote the table and column names.
@@ -613,7 +614,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function addForeignKey($name, $tableName, $columns, $refTable, $refColumns, $delete = null, $update = null)
     {
-		echo "\n\n\n";
 		/// @todo warn about triggers
 		/// @todo get create table additional info
 		$return_queries = [];
@@ -669,7 +669,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
         return 'ALTER TABLE ' . $this->db->quoteTableName($table) . ' RENAME TO ' . $this->db->quoteTableName($newName);
     }
-    
+
     /**
      * Builds a SQL statement for changing the definition of a column.
      * @param string $tableName the table whose column is to be changed. The table name will be properly quoted by the method.
@@ -746,7 +746,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
-			
+
 		// Create indexes for the new table
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
@@ -766,7 +766,29 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function addPrimaryKey($name, $table, $columns)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		/// @todo warn about triggers
+		/// @todo get create table additional info
+		$return_queries = [];
+        $unquoted_tablename = $this->unquoteTableName($table);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
+        $quoted_tablename = $this->db->quoteTableName($table);
+		$ddl_fields_defs = $fields_definitions_tokens->getSql();
+		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteColumnName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
+		$foreign_keys_state = $this->foreignKeysState();
+		$return_queries[] = "SAVEPOINT add_primary_key_to_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = 0";
+		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "DROP TABLE $quoted_tablename";
+		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($table));
+		/// @todo add views
+		$return_queries[] = "PRAGMA triggers = YES";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
+		$return_queries[] = "RELEASE add_primary_key_to_$unquoted_tablename";
+		return implode(";", $return_queries);
     }
 
     /**

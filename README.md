@@ -6,18 +6,18 @@ Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the p
 - Drop column
 - Alter column
 - Add foreign key
+- Rename column
+- Add primary key
 
 # Doing
-- Rename column
 
 # Todo
-- Drop foreign key
-- Add primary key
-- Drop Primary key
 - Add Unique
-- Drop Unique
 - Add Check
+- Drop Unique
 - Drop Check
+- Drop foreign key
+- Drop Primary key
 - Add default value
 - Add comment on column
 - Add Comment on table
