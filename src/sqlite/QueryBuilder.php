@@ -797,7 +797,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropPrimaryKey($name, $table)
     {
-		retun "";
+		return "";
     }
 
     /**
