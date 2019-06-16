@@ -15,7 +15,7 @@
     },
     "autoload": {
         "psr-4": {
-            "santilin\\sqlite\\": "src/"
+            "santilin\\sqlite\\": "src/sqlite/"
         }
     },
     "extra": {
