@@ -15,7 +15,6 @@ class Bootstrap implements BootstrapInterface
      */
     public function bootstrap($app)
     {
-		\Yii::$classMap['yii\db\sqlite\QueryBuilder'] = "@santilin/sqlite/QueryBuilder.php";
-// 		\Yii::$classMap['santilin\sqlite\SqlExpression'] = "@santilin/sqlite/SqlExpression.php";
+		\Yii::$classMap['yii\db\sqlite\QueryBuilder'] = "@santilin/db/sqlite/QueryBuilder.php";
 	}
 }

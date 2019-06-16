@@ -5,7 +5,7 @@
  * @license http://www.yiiframework.com/license/
  */
 
-namespace santilin\db\sqlite;
+namespace yii\db\sqlite;
 
 use yii\base\InvalidParamException;
 use yii\base\NotSupportedException;

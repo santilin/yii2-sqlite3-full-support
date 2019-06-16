@@ -2,7 +2,11 @@
 
 Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the procedures stated at https://www.sqlite.org/lang_altertable.html#otheralter
 
+Provides also a custom santilin\db\SqlExpression that translates MySQL expressions into sqlite.
+
 ## Done
+- Expression translating:
+  - NOW() => 'now'
 - Drop column
 - Alter column
 - Add foreign key
@@ -32,11 +36,11 @@ Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the p
 # Install
 
     require "santilin/yii2-sqlite3-full-support": "*"
-    
+
 # Usage
 
-Due to the lack of container injection for Schema::QueryBuilder ( see https://github.com/yiisoft/yii2/issues/9740 ) to use the sqlite driver you have to change the controllerMap. Add this to your application main [entry script](https://www.yiiframework.com/doc/guide/2.0/en/structure-entry-scripts):
+	The extension works out of the box replacing the className for yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
 
-    Yii::$classMap['yii\db\sqlite\QueryBuilder'] = "@vendor/santilin/yii2-sqlite3-full-support/src/sqlite/QueryBuilder.php";
+	To use the functions translations from MySQL to sqlite, just replace yii\db\Expression into santilin\db\SqlExpression in your code.
 
 
