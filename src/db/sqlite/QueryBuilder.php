@@ -5,7 +5,7 @@
  * @license http://www.yiiframework.com/license/
  */
 
-namespace yii\db\sqlite;
+namespace santilin\db\sqlite;
 
 use yii\base\InvalidParamException;
 use yii\base\NotSupportedException;
@@ -57,7 +57,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
         return array_merge(parent::defaultExpressionBuilders(), [
             'yii\db\conditions\LikeCondition' => 'yii\db\sqlite\conditions\LikeConditionBuilder',
             'yii\db\conditions\InCondition' => 'yii\db\sqlite\conditions\InConditionBuilder',
-            'yii\db\Expression' => 'santilin\sqlite\SqlExpression',
         ]);
     }
 

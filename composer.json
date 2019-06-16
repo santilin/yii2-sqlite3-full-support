@@ -15,11 +15,11 @@
     },
     "autoload": {
         "psr-4": {
-            "santilin\\sqlite\\": "src/sqlite/"
+            "santilin\\db\\": "src/db/"
         }
     },
     "extra": {
-		"bootstrap": "santilin\\sqlite\\Bootstrap",
+		"bootstrap": "santilin\\db\\Bootstrap",
 		"version": "1.0.0"
 	}
 }

@@ -5,7 +5,9 @@
  * @license http://www.yiiframework.com/license/
  */
 
-namespace santilin\sqlite;
+namespace santilin\db;
+
+use yii\db\Expression;
 
 /**
  * Condition that connects two or more SQL expressions with the `AND` operator.
@@ -26,7 +28,11 @@ class SqlExpression extends Expression
      */
     public function __toString()
     {
-        return "'now'";
+		if( $this->expression == "NOW()" ) {
+			return "'now'";
+		} else {
+			return parent::__toString();
+		}
     }
 }
 
