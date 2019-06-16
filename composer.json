@@ -20,7 +20,7 @@
         }
     },
     "extra": {
-		"bootstrap": "santilin\\sqlite\\bootstrap"
+		"bootstrap": "@santilin\\sqlite\\Bootstrap"
 	}
 }
 
