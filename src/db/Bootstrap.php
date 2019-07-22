@@ -1,5 +1,4 @@
 <?php
-
 namespace santilin\db;
 
 use yii\base\Application;

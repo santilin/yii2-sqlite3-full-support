@@ -57,6 +57,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         return array_merge(parent::defaultExpressionBuilders(), [
             'yii\db\conditions\LikeCondition' => 'yii\db\sqlite\conditions\LikeConditionBuilder',
             'yii\db\conditions\InCondition' => 'yii\db\sqlite\conditions\InConditionBuilder',
+            'yii\db\Expression' => 'santilin\db\sqlite\ExpressionBuilder',
         ]);
     }
 
