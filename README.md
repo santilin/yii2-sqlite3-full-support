@@ -6,7 +6,7 @@ Provides also a custom santilin\db\SqlExpression that translates MySQL expressio
 
 ## Done
 - Expression translating:
-  - NOW() => 'now'
+  - NOW() => 'CURRENT_TIMESTAMP'
 - Drop column
 - Alter column
 - Add foreign key
@@ -31,7 +31,6 @@ Provides also a custom santilin\db\SqlExpression that translates MySQL expressio
 - Add comment on column
 - Add Comment on table
 - buildSubqueryInCondition
-- upsert
 
 # Install
 
@@ -40,7 +39,4 @@ Provides also a custom santilin\db\SqlExpression that translates MySQL expressio
 # Usage
 
 	The extension works out of the box replacing the className for yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
-
-	To use the functions translations from MySQL to sqlite, just replace yii\db\Expression into santilin\db\SqlExpression in your code.
-
 

@@ -29,7 +29,7 @@ class ExpressionBuilder implements ExpressionBuilderInterface
         $params = array_merge($params, $expression->params);
         $value = $expression->__toString();
 		if( $value == "NOW()" ) {
-			return "'now'";
+			return "CURRENT_TIMESTAMP";
 		} else {
 			return $value;
 		}
