@@ -3,6 +3,7 @@
  * @link http://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
  * @license http://www.yiiframework.com/license/
+ * @author santilin (software@noviolento.es)
  */
 namespace santilin\db\sqlite;
 use yii\db\ExpressionInterface;

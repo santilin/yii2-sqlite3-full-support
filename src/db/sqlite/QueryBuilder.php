@@ -3,6 +3,7 @@
  * @link http://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
  * @license http://www.yiiframework.com/license/
+ * @author santilin (software@noviolento.es)
  */
 
 namespace yii\db\sqlite;
@@ -649,12 +650,93 @@ class QueryBuilder extends \yii\db\QueryBuilder
     /**
      * Builds a SQL statement for dropping a foreign key constraint.
      * @param string $name the name of the foreign key constraint to be dropped. The name will be properly quoted by the method.
+     * Warning: The migrations pass the foreign key name as a number because yii2/db/sqlite/Schema.php doesn't retrieve the foreign key name
      * @param string $table the table whose foreign is to be dropped. The name will be properly quoted by the method.
      * @return string the SQL statement for dropping a foreign key constraint.
      */
-    public function dropForeignKey($name, $table)
+    public function dropForeignKey($name, $tableName)
     {
-		return "";
+        // Simulate ALTER TABLE ... DROP COLUMN ...
+        $return_queries = [];
+        $return_queries = [];
+		/// @todo warn about triggers
+		/// @todo get create table additional info
+        $ddl_fields_def = '';
+        $sql_fields_to_insert = [];
+        $skipping = false;
+        $foreign_found = false;
+        $quoted_foreign_name = $this->db->quoteColumnName($name);
+        $quoted_tablename = $this->db->quoteSql($tableName);
+        $unquoted_tablename = $this->unquoteTableName($tableName);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
+        $offset = 0;
+        $constraint_pos = 0;
+        // Traverse the tokens looking for either an identifier (field name) or a foreign key
+        while( $fields_definitions_tokens->offsetExists($offset)) {
+			$token = $fields_definitions_tokens[$offset++];
+			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
+			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
+				$identifier = (string)$token;
+				$sql_fields_to_insert[] = $identifier;
+			} else if( $token->type == \yii\db\SqlToken::TYPE_KEYWORD) {
+				$keyword = (string)$token;
+				if( $keyword == "CONSTRAINT" ) {
+					// Constraint key found
+					$other_offset = $offset;
+// 					while( $fields_definitions_tokens->offsetExists($other_offset) && $fields_definitions_tokens[$other_offset]->type != \yii\db\SqlToken::TYPE_PARENTHESIS) {
+// 						++$other_offset;
+// 					}
+					$constraint_name = (string)$fields_definitions_tokens[$other_offset];
+					if ( ($constraint_name == $quoted_foreign_name)
+						|| (is_integer($name) && $constraint_pos == $name) ) {
+						// Found foreign key $name, skip it
+						$foreign_found = true;
+						$skipping = true;
+						$offset = $other_offset;
+					}
+					$constraint_pos++;
+				}
+			} else {
+				/// @todo is there anything else. Look it up in the sqlite docs
+				die("Unexpected: $token");
+			}
+			if( !$skipping ) {
+				$ddl_fields_def .= $token . " ";
+			}
+			// Skip or keep until the next ,
+			while( $fields_definitions_tokens->offsetExists($offset) ) {
+				$skip_token = $fields_definitions_tokens[$offset];
+				if( !$skipping ) {
+					$ddl_fields_def .= (string)$skip_token . " ";
+				}
+				if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
+					$ddl_fields_def .= "\n";
+					++$offset;
+					$skipping = false;
+					break;
+				}
+				++$offset;
+			}
+		}
+		if (!$foreign_found) {
+			throw new InvalidParamException("column '$name' not found in table '$tableName'");
+		}
+		$foreign_keys_state = $this->foreignKeysState();
+		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = 0";
+		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "DROP TABLE $quoted_tablename";
+		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
+
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
+		/// @todo add views
+		$return_queries[] = "PRAGMA triggers = YES";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
+		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
+		return implode(";", $return_queries);
     }
 
     /**
@@ -798,8 +880,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropPrimaryKey($name, $table)
     {
-		return "";
-    }
+        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+	}
 
     /**
      * @inheritDoc
@@ -807,7 +889,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function addUnique($name, $table, $columns)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+		return $this->createIndex($name, $table, $columns, true);
     }
 
     /**
@@ -815,7 +897,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropUnique($name, $table)
     {
-		return "";
+        return "DROP INDEX $name";
     }
 
     /**
@@ -832,8 +914,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropCheck($name, $table)
     {
-		return "";
-    }
+        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+	}
 
     /**
      * @inheritDoc
@@ -849,8 +931,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropDefaultValue($name, $table)
     {
-		return "";
-    }
+        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+	}
 
     /**
      * @inheritdoc
@@ -878,8 +960,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropCommentFromColumn($table, $column)
     {
-		return "";
-    }
+        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+	}
 
     /**
      * @inheritdoc
@@ -887,8 +969,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropCommentFromTable($table)
     {
-		return "";
-    }
+        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
+	}
 
     /**
      * {@inheritdoc}

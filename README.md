@@ -12,24 +12,19 @@ Provides also a custom santilin\db\SqlExpression that translates MySQL expressio
 - Add foreign key
 - Rename column
 - Add primary key
-
-## Not done yet but ignored (doesn't throw)
-- Drop foreign key
-- Drop Primary key
+- Drop foreign key (works with migrate/refresh which passes index of foreign key instead of name)
 - Drop Unique
-- Drop Check
-- Drop default value
-- Drop comment from column
-- Drop comment from table
-
-## Doing
 
 ## Todo
-- Add Unique
+- Drop Primary key
 - Add Check
+- Drop Check
 - Add default value
+- Drop default value
 - Add comment on column
+- Drop comment from column
 - Add Comment on table
+- Drop comment from table
 - buildSubqueryInCondition
 
 # Install
@@ -38,5 +33,6 @@ Provides also a custom santilin\db\SqlExpression that translates MySQL expressio
 
 # Usage
 
-	The extension works out of the box replacing the className for yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
+	The extension works out of the box without any configuration.
+	The boostrap of this extension replaces the className for yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
 
