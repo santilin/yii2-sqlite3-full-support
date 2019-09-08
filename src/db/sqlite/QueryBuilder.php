@@ -445,9 +445,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
@@ -457,9 +456,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		// Indexes. Skip any index referencing $column
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $column));
 		/// @todo add views
-		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
 	}
 
@@ -518,20 +516,18 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$schema_version = intval($this->db->createCommand("PRAGMA schema_version")->queryScalar());
 		$schema_version++;
 		$foreign_keys_state = $this->foreignKeysState();
- 		$return_queries[] = "SAVEPOINT rename_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "PRAGMA triggers = NO";
-		$return_queries[] = "PRAGMA writable_schema=ON";
+ 		$return_queries[] = "SAVEPOINT rename_column_$unquoted_tablename";
+		$return_queries[] = "PRAGMA writable_schema=true";
 		$return_queries[] = "UPDATE sqlite_master SET sql=" . $this->db->quoteValue("CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")") . " WHERE type=" . $this->db->quoteValue("table") . " AND name=" . $this->db->quoteValue($unquoted_tablename);
 		$return_queries[] = "PRAGMA schema_version = $schema_version";
-		$return_queries[] = "PRAGMA writable_schema=OFF";
+		$return_queries[] = "PRAGMA writable_schema=false";
 		// Create indexes for the new table
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $oldName, $newName));
 		/// @todo add views
-		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "PRAGMA integrity_check";
  		$return_queries[] = "RELEASE rename_column_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
 	}
 
@@ -631,9 +627,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT add_foreign_key_to_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "SAVEPOINT add_foreign_key_to_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
@@ -641,9 +636,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
-		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE add_foreign_key_to_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
 	}
 
@@ -722,9 +716,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$name' not found in table '$tableName'");
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
@@ -733,9 +726,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
-		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
     }
 
@@ -819,9 +811,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT alter_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "SAVEPOINT alter_column_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
@@ -831,9 +822,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		// Create indexes for the new table
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
 		/// @todo add views
-		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE alter_column_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
 	}
 
@@ -856,9 +846,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteColumnName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "SAVEPOINT add_primary_key_to_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "PRAGMA triggers = NO";
+		$return_queries[] = "SAVEPOINT add_primary_key_to_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
@@ -866,9 +855,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($table));
 		/// @todo add views
-		$return_queries[] = "PRAGMA triggers = YES";
-		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		$return_queries[] = "RELEASE add_primary_key_to_$unquoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
     }
 

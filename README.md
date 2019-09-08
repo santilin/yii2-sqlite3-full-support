@@ -2,7 +2,7 @@
 
 Adds support for unsupported sqlite3 ALTER TABLE comands to Yii2 following the procedures stated at https://www.sqlite.org/lang_altertable.html#otheralter
 
-Provides also a custom santilin\db\SqlExpression that translates MySQL expressions into sqlite.
+Provides also a seamlessly translation of MySQL expressions into sqlite expressions.
 
 ## Done
 - Expression translating:
@@ -34,5 +34,5 @@ Provides also a custom santilin\db\SqlExpression that translates MySQL expressio
 # Usage
 
 	The extension works out of the box without any configuration.
-	The boostrap of this extension replaces the className for yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
+	The boostrap of this extension replaces the className of yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
 
