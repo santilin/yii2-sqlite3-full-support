@@ -296,6 +296,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER) {
 						if( (string)$token == $skipColumn || (string)$token == $quoted_skip_column) {
 							$found = true;
+							unset($indexes[$key]);
 							break;
 						}
 					}
@@ -627,7 +628,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
 		$foreign_keys_state = $this->foreignKeysState();
-		$return_queries[] = "PRAGMA foreign_keys = 0";
+		$return_queries[] = "PRAGMA foreign_keys = off";
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";

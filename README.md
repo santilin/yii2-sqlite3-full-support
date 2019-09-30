@@ -36,3 +36,5 @@ Provides also a seamlessly translation of MySQL expressions into sqlite expressi
 	The extension works out of the box without any configuration.
 	The boostrap of this extension replaces the className of yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
 
+# Caveats
+	When using `safeUp` and `safeDown` in a migration that includes `Drop column`, `Alter column`, `Add foreign key`, `Rename column` and `Drop foreign key` the migration fails because the `pragma foreignkeys` only works out of transactions. You have to use `up` and `down` instead in your migration.
