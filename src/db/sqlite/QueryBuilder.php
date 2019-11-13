@@ -393,11 +393,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
             . $this->db->quoteTableName($table)
             . ' (' . $this->buildColumns($columns) . ')';
         $sql = preg_replace_callback(
-            '/(`.*`) ON (\{\{(%?)([\w\-]+)\}\}\.\{\{((%?)[\w\-]+)\\}\\})/',
+            '/(`.*`) ON (\{\{(%?)([\w\-]+)\}\}\.\{\{((%?)[\w\-]+)\\}\\})|(`.*`) ON (\{\{(%?)([\w\-]+)\.([\w\-]+)\\}\\})/',
             function ($matches) {
-                if (isset($matches[2])) {
+                if (!empty($matches[1])) {
 					return $matches[4].".".$matches[1]
 					 . " ON {{" .$matches[3].$matches[5] . "}}";
+                } else if( !empty($matches[7]) ) {
+					return $matches[10].".".$matches[7]
+					 . " ON {{" .$matches[9].$matches[11] . "}}";
                 }
             },
             $sql
