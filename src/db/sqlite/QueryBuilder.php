@@ -654,6 +654,10 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
 		/// @todo warn about triggers
 		/// @todo get create table additional info
+		if( ($pos=strpos($refTable, '.')) !== false ) {
+            Yii::info("sqlite3 doesn't support foreign keys across different schemas", __METHOD__);
+			return '' ;
+		}
 		$return_queries = [];
 		// The sqlite syntax for foreign keys when there is a schema is peculiar:
 		// FOREIGN KEY schema.foreing_key_name
@@ -668,10 +672,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$unquoted_tablename = $this->unquoteTableName($tableName);
 			$quoted_tablename = $this->db->quoteTableName($tableName);
 			$tmp_table_name =  "temp_" . $this->unquoteTableName($tableName);
-		}
-		if( ($pos=strpos($refTable, '.')) !== false ) {
-			// don't use schema part
-			$refTable = substr($refTable, $pos+1);
 		}
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();

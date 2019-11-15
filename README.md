@@ -57,3 +57,6 @@ $id = (int) $key['id'];
 if (!isset($table->foreignKeys[$id])) {
 $table->foreignKeys[$id] = [$key['table'], $key['from'] => $key['to']];
 ```
+
+# TODO
+* Check in which version was ALTER TABLE RENAME COLUMN added to sqlite3
