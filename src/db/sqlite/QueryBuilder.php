@@ -7,7 +7,7 @@
  */
 
 namespace yii\db\sqlite;
-
+use Yii;
 use yii\base\InvalidParamException;
 use yii\base\NotSupportedException;
 use yii\db\Connection;
@@ -635,7 +635,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $ret;
 	}
 
-
     /**
      * Builds a SQL statement for adding a foreign key constraint to an existing table.
      * The method will properly quote the table and column names.
@@ -654,20 +653,24 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
 		/// @todo warn about triggers
 		/// @todo get create table additional info
-		if( ($pos=strpos($refTable, '.')) !== false ) {
+		$schema = $refschema = '';
+		if( ($pos=strpos($tableName, '.')) !== false ) {
+			$schema = $this->unquoteTableName(substr($tableName,0, $pos));
+			$tableName = substr($tableName, $pos+1);
+		}
+		if( ($pos_ref=strpos($refTable, '.')) !== false ) {
+			$refschema = substr($refTable, 0, $pos_ref);
+			$refTable = substr($refTable, $pos_ref+1);
+		}
+		if( ($schema != '' || $refschema != '' && $schema != $refschema) ) {
             Yii::info("sqlite3 doesn't support foreign keys across different schemas", __METHOD__);
 			return '' ;
 		}
-		$return_queries = [];
-		// The sqlite syntax for foreign keys when there is a schema is peculiar:
-		// FOREIGN KEY schema.foreing_key_name
-		if( ($pos=strpos($tableName, '.')) !== false ) {
-			$s = $this->unquoteTableName(substr($tableName,0, $pos));
-			$tableName = substr($tableName, $pos+1);
-			$tmp_table_name =  "temp_{$s}_" . $this->unquoteTableName($tableName);
-			$s.='.';
-			$unquoted_tablename = $s . $this->unquoteTableName($tableName);
-			$quoted_tablename = $s . $this->db->quoteTableName($tableName);
+		if ($schema != '' ) {
+			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($tableName);
+			$schema.='.';
+			$unquoted_tablename = $schema . $this->unquoteTableName($tableName);
+			$quoted_tablename = $schema . $this->db->quoteTableName($tableName);
 		} else {
 			$unquoted_tablename = $this->unquoteTableName($tableName);
 			$quoted_tablename = $this->db->quoteTableName($tableName);
@@ -683,6 +686,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
 		$foreign_keys_state = $this->foreignKeysState();
+		$return_queries = [];
 		$return_queries[] = "PRAGMA foreign_keys = off";
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TEMP TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
@@ -708,7 +712,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
         // Simulate ALTER TABLE ... DROP COLUMN ...
         $return_queries = [];
-        $return_queries = [];
 		/// @todo warn about triggers
 		/// @todo get create table additional info
         $ddl_fields_def = '';
@@ -730,13 +733,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				$sql_fields_to_insert[] = $identifier;
 			} else if( $token->type == \yii\db\SqlToken::TYPE_KEYWORD) {
 				$keyword = (string)$token;
-				if( $keyword == "CONSTRAINT" ) {
+				if( $keyword == 'CONSTRAINT' || $keyword == 'FOREIGN') {
 					// Constraint key found
 					$other_offset = $offset;
-// 					while( $fields_definitions_tokens->offsetExists($other_offset) && $fields_definitions_tokens[$other_offset]->type != \yii\db\SqlToken::TYPE_PARENTHESIS) {
-// 						++$other_offset;
-// 					}
-					$constraint_name = (string)$fields_definitions_tokens[$other_offset];
+					if ($keyword == 'CONSTRAINT' ) {
+						$constraint_name = (string)$fields_definitions_tokens[$other_offset];
+					} else {
+						$constraint_name = $this->db->quoteColumnName(strval($constraint_pos));
+					}
 					if ( ($constraint_name == $quoted_foreign_name)
 						|| (is_integer($name) && $constraint_pos == $name) ) {
 						// Found foreign key $name, skip it
@@ -769,7 +773,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 		}
 		if (!$foreign_found) {
-			throw new InvalidParamException("column '$name' not found in table '$tableName'");
+			throw new InvalidParamException("foreign key constraint '$name' not found in table '$tableName'");
 		}
 		$foreign_keys_state = $this->foreignKeysState();
 		$return_queries[] = "PRAGMA foreign_keys = 0";
