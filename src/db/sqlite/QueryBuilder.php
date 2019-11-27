@@ -900,22 +900,32 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		/// @todo warn about triggers
 		/// @todo get create table additional info
 		$return_queries = [];
-        $unquoted_tablename = $this->unquoteTableName($table);
+		$schema = '';
+		if( ($pos=strpos($table, '.')) !== false ) {
+			$schema = $this->unquoteTableName(substr($table, 0, $pos));
+			$table = substr($table, $pos+1);
+			$unquoted_tablename = $schema . '.' . $this->unquoteTableName($table);
+			$quoted_tablename = $schema . '.' . $this->db->quoteTableName($table);
+			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($table);
+		} else {
+			$unquoted_tablename = $this->unquoteTableName($table);
+			$quoted_tablename = $this->db->quoteTableName($table);
+			$tmp_table_name =  "temp_" . $this->unquoteTableName($table);
+		}
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
-        $quoted_tablename = $this->db->quoteTableName($table);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteColumnName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
 		$foreign_keys_state = $this->foreignKeysState();
 		$return_queries[] = "PRAGMA foreign_keys = 0";
-		$return_queries[] = "SAVEPOINT add_primary_key_to_$unquoted_tablename";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName($tmp_table_name);
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($table));
 		/// @todo add views
-		$return_queries[] = "RELEASE add_primary_key_to_$unquoted_tablename";
+		$return_queries[] = "RELEASE add_primary_key_to_$tmp_table_name";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
 		return implode(";", $return_queries);
     }
