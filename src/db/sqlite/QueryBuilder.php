@@ -426,7 +426,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $skipping = false;
         $column_found = false;
         $quoted_column = $this->db->quoteColumnName($column);
-        $quoted_tablename = $this->db->quoteSql($tableName);
+        $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
         $offset = 0;
@@ -719,7 +719,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $skipping = false;
         $foreign_found = false;
         $quoted_foreign_name = $this->db->quoteColumnName($name);
-        $quoted_tablename = $this->db->quoteSql($tableName);
+        $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
         $offset = 0;
@@ -827,7 +827,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $column_found = false;
         $adding_column_type = false;
         $unquoted_tablename = $this->unquoteTableName($tableName);
-        $quoted_tablename = $this->db->quoteSql($tableName);
+        $quoted_tablename = $this->db->quoteTableName($tableName);
         $quoted_column = $this->db->quoteColumnName($column);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);        $offset = 0;
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
