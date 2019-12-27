@@ -35,13 +35,14 @@ Manages DDL statements with attached databases
 
 # Usage
 
-	The extension works out of the box without any configuration.
-	The boostrap of this extension replaces the className of yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
+The extension works out of the box without any configuration.
+The boostrap of this extension replaces the className of yii\db\sqlite\QueryBuilder to point to this custom QueryBuilder.
 
 # Caveats
-	When using `safeUp` and `safeDown` in a migration that includes `Drop column`, `Alter column`, `Add foreign key`, `Rename column` and `Drop foreign key` the migration fails because the `pragma foreignkeys` only works outside transactions. You have to use `up` and `down` instead in your migration.
+When using `safeUp` and `safeDown` in a migration that includes `Drop column`, `Alter column`, `Add foreign key`, `Rename column` and `Drop foreign key` the migration fails because the `pragma foreignkeys` only works outside transactions. You have to use `up` and `down` instead in your migration.
 
-	The command migrate/fresh drops all foreign keys prior to dropping tables. As the migrate controller doesn't send the name of the foreign key, but the number of foreign key instead, you have to change this line of code:
+The command migrate/fresh drops all foreign keys prior to dropping tables. As the migrate controller doesn't send the name of the foreign key, but the number of foreign key instead, you have to change this line of code:
+
 ```
 diff --git a/db/sqlite/Schema.php b/db/sqlite/Schema.php
 index c8898d817..2e30e823f 100644
