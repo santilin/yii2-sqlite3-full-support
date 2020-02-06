@@ -494,7 +494,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 
 		// Indexes. Skip any index referencing $column
-		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $column));
+		$return_queries = array_merge($return_queries,
+			$this->getIndexSqls($unquoted_tablename, $column));
 		/// @todo add views
 		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
@@ -563,7 +564,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "PRAGMA schema_version = $schema_version";
 		$return_queries[] = "PRAGMA writable_schema=false";
 		// Create indexes for the new table
-		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName, $oldName, $newName));
+		$return_queries = array_merge($return_queries,
+			$this->getIndexSqls($unquoted_tablename, $oldName, $newName));
 		/// @todo add views
 		$return_queries[] = "PRAGMA integrity_check";
  		$return_queries[] = "RELEASE rename_column_$unquoted_tablename";
@@ -694,7 +696,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
-		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE add_foreign_key_to_$tmp_table_name";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
@@ -784,7 +786,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 
-		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
@@ -880,7 +882,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
 
 		// Create indexes for the new table
-		$return_queries = array_merge($return_queries, $this->getIndexSqls($tableName));
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE alter_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
@@ -923,7 +925,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
-		$return_queries = array_merge($return_queries, $this->getIndexSqls($table));
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE add_primary_key_to_$tmp_table_name";
 		$return_queries[] = "PRAGMA foreign_keys = $foreign_keys_state";
