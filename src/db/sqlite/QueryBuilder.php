@@ -247,7 +247,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropIndex($name, $table)
     {
-        return 'DROP INDEX ' . $this->db->quoteTableName($name);
+        return 'DROP INDEX ' . $this->db->quoteTableName((string)$name);
     }
 
 	/// santilin
