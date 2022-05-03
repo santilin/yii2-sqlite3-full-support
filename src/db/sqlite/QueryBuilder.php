@@ -714,8 +714,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
-		$return_queries[] = "CREATE TEMP TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = off";
+		$return_queries[] = "CREATE TEMP TABLE "
+			. $this->db->quoteTableName($tmp_table_name)
+			. " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = off";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = off";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
