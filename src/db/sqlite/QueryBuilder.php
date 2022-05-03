@@ -487,11 +487,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
 		$fks_save = $this->foreignKeysState();
-		$this->setForeignKeysState(false);
-		if( $this->foreignKeysState() == true ) {
-			$this->setForeignKeysState($fks_save);
-			throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+			}
+			$this->setForeignKeysState(true);
 		}
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -563,11 +566,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$schema_version = intval($this->db->createCommand("PRAGMA schema_version")->queryScalar());
 		$schema_version++;
 		$fks_save = $this->foreignKeysState();
-		$this->setForeignKeysState(false);
-		if( $this->foreignKeysState() == true ) {
-			$this->setForeignKeysState($fks_save);
-			throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+			}
+			$this->setForeignKeysState(true);
 		}
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT rename_column_$unquoted_tablename";
 		$return_queries[] = "PRAGMA writable_schema=true";
 		$return_queries[] = "UPDATE sqlite_master SET sql=" . $this->db->quoteValue("CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")") . " WHERE type=" . $this->db->quoteValue("table") . " AND name=" . $this->db->quoteValue($unquoted_tablename);
@@ -699,11 +705,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$return_queries = [];
 		$fks_save = $this->foreignKeysState();
-		$this->setForeignKeysState(false);
-		if( $this->foreignKeysState() == true ) {
-			$this->setForeignKeysState($fks_save);
-			throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+			}
+			$this->setForeignKeysState(true);
 		}
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TEMP TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -792,11 +801,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("foreign key constraint '$name' not found in table '$tableName'");
 		}
 		$fks_save = $this->foreignKeysState();
-		$this->setForeignKeysState(false);
-		if( $this->foreignKeysState() == true ) {
-			$this->setForeignKeysState($fks_save);
-			throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+			}
+			$this->setForeignKeysState(true);
 		}
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT drop_foreign_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -891,11 +903,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
 		$fks_save = $this->foreignKeysState();
-		$this->setForeignKeysState(false);
-		if( $this->foreignKeysState() == true ) {
-			$this->setForeignKeysState($fks_save);
-			throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+			}
+			$this->setForeignKeysState(true);
 		}
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT alter_column_$unquoted_tablename";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -940,11 +955,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteColumnName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
 		$fks_save = $this->foreignKeysState();
-		$this->setForeignKeysState(false);
-		if( $this->foreignKeysState() == true ) {
-			$this->setForeignKeysState($fks_save);
-			throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+			}
+			$this->setForeignKeysState(true);
 		}
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
