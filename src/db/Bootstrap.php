@@ -19,9 +19,11 @@ class Bootstrap implements BootstrapInterface
 		\Yii::$classMap['yii\db\sqlite\QueryBuilder'] = "@santilin/db/sqlite/QueryBuilder.php";
 // 		\Yii::$classMap['yii\db\sqlite\Schema'] = "@santilin/db/sqlite/Schema.php";
 		if( isset(Yii::$app->db) ) {
-			Yii::$app->db->on(Connection::EVENT_AFTER_OPEN, function($e) {
-				Yii::$app->db->createCommand()->checkIntegrity(true)->execute();
-			});
+			if( empty(getenv('YII2_SQLITE3_NO_CHECK_FOREIGN')) ) {
+				Yii::$app->db->on(Connection::EVENT_AFTER_OPEN, function($e) {
+					Yii::$app->db->createCommand()->checkIntegrity(true)->execute();
+				});
+			}
 		}
 	}
 }
