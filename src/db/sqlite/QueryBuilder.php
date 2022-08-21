@@ -490,7 +490,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
 			}
 			$this->setForeignKeysState(true);
 		}
@@ -569,7 +569,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
 			}
 			$this->setForeignKeysState(true);
 		}
@@ -708,7 +708,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
 			}
 			$this->setForeignKeysState(true);
 		}
@@ -806,7 +806,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
 			}
 			$this->setForeignKeysState(true);
 		}
@@ -908,7 +908,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
 			}
 			$this->setForeignKeysState(true);
 		}
@@ -960,7 +960,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction");
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
 			}
 			$this->setForeignKeysState(true);
 		}

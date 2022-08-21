@@ -40,12 +40,16 @@ The boostrap of this extension replaces the className of yii\db\sqlite\QueryBuil
 
 # Caveats
 ## Foreign key disabling
-When using `safeUp` and `safeDown` in a migration that includes `Drop column`, `Alter column`, `Add foreign key`, `Rename column` and `Drop foreign key` the migration fails because the `pragma foreignkeys` only works outside transactions. You have to use `up` and `down` instead in your migration. A exception is thrown if foreign keys can not be disabled. 
+When using `safeUp` and `safeDown` in a migration that includes `Drop column`, `Alter column`, `Add foreign key`, `Rename column` and `Drop foreign key` the migration fails because the `pragma foreignkeys` only works outside transactions. You have to use `up` and `down` instead in your migration. A exception is thrown if foreign keys can not be disabled.
 
 You can force the migration even if foreign keys can not be disabled defining the environment variable YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS
 
+```
+YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 ./yii migrate/fresh
+```
+
 ## migrate/fresh
-The command `migrate/fresh` drops all foreign keys prior to dropping tables. As the migrate controller doesn't send the name of the foreign key, but the number of foreign key instead in ascending order, the foreign keys are not dropped properly. To fix this, you have to change this line of code:
+The command `migrate/fresh` drops all foreign keys prior to dropping tables. As the migrate controller doesn't send the name of the foreign key but the number of foreign key instead in ascending order, the foreign keys are not dropped properly. To fix this, you have to change this line of code:
 
 ```
 diff --git a/db/sqlite/Schema.php b/db/sqlite/Schema.php
