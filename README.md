@@ -12,7 +12,6 @@ Manages DDL statements with attached databases
 - Drop column
 - Alter column
 - Add foreign key
-- Rename column
 - Add primary key
 - Drop foreign key (works with migrate/refresh which passes index of foreign key instead of name)
 - Drop Unique
@@ -49,23 +48,21 @@ YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 ./yii migrate/fresh
 ```
 
 ## migrate/fresh
-The command `migrate/fresh` drops all foreign keys prior to dropping tables. As the migrate controller doesn't send the name of the foreign key but the number of foreign key instead in ascending order, the foreign keys are not dropped properly. To fix this, you have to change this line of code:
+The command `migrate/fresh` drops all foreign keys prior to dropping tables. As sqlite doesn't returns the name of the foreign key but the number of foreign, when the first foreignk key is dropped, the second one becomes the first and so, when trying to delete the second one, it no longer exists. To fix this, you have to change this line of code:
 
 ```
-diff --git a/db/sqlite/Schema.php b/db/sqlite/Schema.php
-index c8898d817..2e30e823f 100644
---- a/db/sqlite/Schema.php
-+++ b/db/sqlite/Schema.php
-@@ -254,7 +254,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
-{
-$sql = 'PRAGMA foreign_key_list(' . $this->quoteSimpleTableName($table->name) . ')';
-$keys = $this->db->createCommand($sql)->queryAll();
--        foreach ($keys as $key) {
-+        foreach (array_reverse($keys) as $key) {
-$id = (int) $key['id'];
-if (!isset($table->foreignKeys[$id])) {
-$table->foreignKeys[$id] = [$key['table'], $key['from'] => $key['to']];
-```
+diff --git a/console/controllers/MigrateController.php b/console/controllers/MigrateController.php
+index 17b6a7638..6f553a22d 100644
+--- a/console/controllers/MigrateController.php
++++ b/console/controllers/MigrateController.php
+@@ -301,7 +301,7 @@ class MigrateController extends BaseMigrateController
 
-# TODO
-* Check in which version was ALTER TABLE RENAME COLUMN added to sqlite3
+         // First drop all foreign keys,
+         foreach ($schemas as $schema) {
+-            foreach ($schema->foreignKeys as $name => $foreignKey) {
++            foreach ( array_reverse($schema->foreignKeys, true) as $name => $foreignKey) {
+                 $db->createCommand()->dropForeignKey($name, $schema->name)->execute();
+                 $this->stdout("Foreign key $name dropped.\n");
+             }
+
+```
