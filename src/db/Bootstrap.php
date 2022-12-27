@@ -19,7 +19,7 @@ class Bootstrap implements BootstrapInterface
 		\Yii::$classMap['yii\db\sqlite\QueryBuilder'] = "@santilin/db/sqlite/QueryBuilder.php";
 		if( isset(Yii::$app->db) ) {
 			if( empty(getenv('YII2_SQLITE3_DISABLE_FOREIGN_CHECKS')) ) 	 {
-				if ( !(Yii::$app->params['diable_foreign_key_checks']??false) ) {
+				if ( !(Yii::$app->params['sqlite3_disable_foreign_keys']??false) ) {
 					Yii::$app->db->on(Connection::EVENT_AFTER_OPEN, function($e) {
 						Yii::$app->db->createCommand()->checkIntegrity(true)->execute();
 					});
