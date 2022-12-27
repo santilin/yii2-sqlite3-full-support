@@ -20,7 +20,6 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 {
     use ExpressionBuilderTrait;
 
-
     /**
      * {@inheritdoc}
      * @param Expression|ExpressionInterface $expression the expression to be built
@@ -31,6 +30,8 @@ class ExpressionBuilder implements ExpressionBuilderInterface
         $value = $expression->__toString();
 		if( $value == "NOW()" ) {
 			return "CURRENT_TIMESTAMP";
+		} else if( $value == "UNIX_TIMESTAMP()" ) {
+			return "CAST(strftime('%s', 'now') AS INT)";
 		} else {
 			return $value;
 		}
