@@ -20,7 +20,6 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 {
     use ExpressionBuilderTrait;
 
-
     /**
      * {@inheritdoc}
      * @param Expression|ExpressionInterface $expression the expression to be built
@@ -29,8 +28,10 @@ class ExpressionBuilder implements ExpressionBuilderInterface
     {
         $params = array_merge($params, $expression->params);
         $value = $expression->__toString();
-		if( $value == 'NOW()' ) {
-			return 'CURRENT_TIMESTAMP';
+		if( $value == "NOW()" ) {
+			return "CURRENT_TIMESTAMP";
+		} else if( $value == "UNIX_TIMESTAMP()" ) {
+			return "CAST(strftime('%s', 'now') AS INT)";
 		} else {
 			$matches = null;
 			if( preg_match_all("/\s*CONCAT\s*\((.*)\)/", $expression, $matches) ) {
@@ -50,7 +51,6 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 					return ( join('||', $fields) );
 				}
 			}
-
 			return $value;
 		}
 	}
