@@ -13,7 +13,7 @@ use yii\db\ExpressionBuilderTrait;
 /**
  * Class ExpressionBuilder builds objects of [[yii\db\Expression]] class.
  *
- * @author Dmitry Naumenko <d.naumenko.a@gmail.com>
+ * @author Santilín <software@noviolento.es>
  * @since 2.0.14
  */
 class ExpressionBuilder implements ExpressionBuilderInterface
@@ -29,9 +29,28 @@ class ExpressionBuilder implements ExpressionBuilderInterface
     {
         $params = array_merge($params, $expression->params);
         $value = $expression->__toString();
-		if( $value == "NOW()" ) {
-			return "CURRENT_TIMESTAMP";
+		if( $value == 'NOW()' ) {
+			return 'CURRENT_TIMESTAMP';
 		} else {
+			$matches = null;
+			if( preg_match_all("/\s*CONCAT\s*\((.*)\)/", $expression, $matches) ) {
+				$fields = $matches[1][0];
+ 				if( preg_match_all("/\s*([^',]+)\s*|\s*'([^']+)'\s*,?/", $fields, $matches) ) {
+					$fields = [];
+					foreach( $matches[1] as $k => $v ) {
+						$v = trim($v);
+						if( $v == '' ) {
+							if( $matches[2][$k] != '' ) {
+								$fields[] = "'".$matches[2][$k]."'";
+							}
+						} else {
+							$fields[] = $v;
+						}
+					}
+					return ( join('||', $fields) );
+				}
+			}
+
 			return $value;
 		}
 	}
