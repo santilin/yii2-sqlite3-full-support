@@ -448,9 +448,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				}
 			} else if( $token->type == \yii\db\SqlToken::TYPE_KEYWORD) {
 				$keyword = (string)$token;
-				if( $keyword == "FOREIGN" ) {
-					// Foreign key found
+				if( $keyword == 'CONSTRAINT' || $keyword == 'FOREIGN') {
+					// Constraint key found
 					$other_offset = $offset;
+					if ($keyword == 'CONSTRAINT' ) {
+						$constraint_name = (string)$fields_definitions_tokens[$other_offset];
+					} else {
+						$constraint_name = $this->db->quoteColumnName(strval($constraint_pos));
+					}
 					while( $fields_definitions_tokens->offsetExists($other_offset) && $fields_definitions_tokens[$other_offset]->type != \yii\db\SqlToken::TYPE_PARENTHESIS) {
 						++$other_offset;
 					}
@@ -475,7 +480,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					$ddl_fields_def .= (string)$skip_token . " ";
 				}
 				if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
-					$ddl_fields_def .= "\n";
+					if( substr($ddl_fields_def, -1) != "\n" ) $ddl_fields_def .= "\n";
 					++$offset;
 					$skipping = false;
 					break;
@@ -713,7 +718,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					$ddl_fields_def .= (string)$skip_token . " ";
 				}
 				if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
-					$ddl_fields_def .= "\n";
+					if( substr($ddl_fields_def,-1) != "\n" ) $ddl_fields_def .= "\n";
 					++$offset;
 					$skipping = false;
 					break;
