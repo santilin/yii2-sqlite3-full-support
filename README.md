@@ -44,7 +44,7 @@ When using `safeUp` and `safeDown` in a migration that includes `Drop column`, `
 You can force the migration even if foreign keys can not be disabled defining the environment variable YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS
 
 ```
-YII2_SQLITE3_NO_ENABLE_FOREIGN_CHECKS=1 ./yii migrate/fresh
+YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 ./yii migrate/fresh
 ```
 
 ## migrate/fresh
