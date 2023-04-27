@@ -7,14 +7,16 @@ Provides also a seamlessly translation of MySQL expressions into sqlite expressi
 Manages DDL statements with attached databases
 
 ## Done
-- Expression translating:
-  - NOW() => 'CURRENT_TIMESTAMP'
 - Drop column
 - Alter column
 - Add foreign key
 - Add primary key
 - Drop foreign key (works with migrate/refresh which passes index of foreign key instead of name)
 - Drop Unique
+	- Expression translating:
+	- NOW() => 'CURRENT_TIMESTAMP'
+	- UNIX_TIMESTAMP() => CAST(strftime('%s', 'now') AS INT)
+	- CONCAT => ||
 
 ## Todo
 - Drop Primary key
