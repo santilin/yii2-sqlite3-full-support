@@ -8,6 +8,7 @@
 
 namespace yii\db\sqlite;
 use Yii;
+use yii\db\Exception as DBException;
 use yii\base\InvalidParamException;
 use yii\base\NotSupportedException;
 use yii\db\{Connection,Expression,Query};
@@ -275,6 +276,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $return_indexes;
 	}
 
+	private function recursiveTokenHasTokens(SqlToken $token, array $search_tokens): bool
+	{
+		if (!$token->getHasChildren()) {
+            return false;
+        }
+	}
+
 	private function getIndexSqls($tableName, $skipColumn = null, $newColumn = null)
 	{
 		// Get all indexes on this table
@@ -479,7 +487,23 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				if( !$skipping ) {
 					$ddl_fields_def .= (string)$skip_token . " ";
 				}
-				if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
+// 				if( $skip_token->type == \yii\db\SqlToken::TYPE_TOKEN && strtoupper((string)$skip_token) == 'GENERATED' ) {
+// 					++$offset;
+// 					while( $fields_definitions_tokens->offsetExists($offset) ) {
+// 						$skip_token = $fields_definitions_tokens[$offset];
+// 						$s = $skip_token->content;
+// 						if( $skip_token->type == \yii\db\SqlToken::TYPE_KEYWORD && strtoupper((string)$skip_token) == 'VIRTUAL') {
+// 							++$offset;
+// 							break;
+// 						}
+// 						++$offset;
+// 					}
+// 					if (!$fields_definitions_tokens->offsetExists($offset) ) {
+// 						throw new DBException($tableName . '.' . $column . ":Virtual field definition error");
+// 					}
+// 					$skip_token = $fields_definitions_tokens[$offset];
+// 				}
+				if( $skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
 					if( substr($ddl_fields_def, -1) != "\n" ) $ddl_fields_def .= "\n";
 					++$offset;
 					$skipping = false;
