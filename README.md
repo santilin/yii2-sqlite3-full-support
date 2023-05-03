@@ -50,7 +50,7 @@ YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 ./yii migrate/fresh
 ```
 
 ## migrate/fresh
-The command `migrate/fresh` drops all foreign keys prior to dropping tables. As sqlite doesn't returns the name of the foreign key but the number of foreign, when the first foreignk key is dropped, the second one becomes the first and so, when trying to delete the second one, it no longer exists. To fix this, you have to change this line of code:
+The command `migrate/fresh` drops all foreign keys prior to dropping tables. As sqlite doesn't return the name but the number of the foreign key, when the first foreign key is dropped, the second one becomes the first and so, when trying to delete the second one, it no longer exists. To fix this, you have to change this line of code:
 
 ```
 diff --git a/console/controllers/MigrateController.php b/console/controllers/MigrateController.php

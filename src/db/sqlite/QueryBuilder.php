@@ -8,6 +8,7 @@
 
 namespace yii\db\sqlite;
 use Yii;
+use yii\db\SqlToken;
 use yii\db\Exception as DBException;
 use yii\base\InvalidParamException;
 use yii\base\NotSupportedException;
@@ -276,11 +277,31 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $return_indexes;
 	}
 
-	private function recursiveTokenHasTokens(SqlToken $token, array $search_tokens): bool
+	/**
+	 * Search recursively any of the given $search_tokens in the $parent_token
+	 * Used to check if an index has a given field:
+		ALTER TABLE tblname CREATE INDEX idxname ON (coalesce(fldname,'');
+	 */
+	private function recursiveTokenHasToken(SqlToken $parent_token, array $search_tokens): bool
 	{
-		if (!$token->getHasChildren()) {
-            return false;
+		if (!$parent_token->getHasChildren()) {
+			foreach ($search_tokens as $token_string => $token_type) {
+				if ($token_type == $parent_token->type && $token_string == (string)$parent_token) {
+					return true;
+				}
+			}
+		} else for ($index = 0, $count = count($parent_token->children); $index < $count; $index++) {
+			$token = $parent_token[$index];
+			if ($token->getHasChildren()) {
+				return $this->recursiveTokenHasToken($token, $search_tokens);
+			}
+			foreach ($search_tokens as $token_string => $token_type) {
+				if ($token_type == $token->type && $token_string == (string)$token) {
+					return true;
+				}
+			}
         }
+        return false;
 	}
 
 	private function getIndexSqls($tableName, $skipColumn = null, $newColumn = null)
@@ -305,12 +326,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				$offset = 0;
 				while( $indexFieldsDef->offsetExists($offset) ) {
 					$token = $indexFieldsDef[$offset];
-					if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER) {
-						if( (string)$token == $skipColumn || (string)$token == $quoted_skip_column) {
+					if( $this->recursiveTokenHasToken($token, [
+						$skipColumn => \yii\db\SqlToken::TYPE_IDENTIFIER,
+						$quoted_skip_column => \yii\db\SqlToken::TYPE_IDENTIFIER,
+					] )) {
 							$found = true;
 							unset($indexes[$key]);
 							break;
-						}
 					}
 					++$offset;
 				}
