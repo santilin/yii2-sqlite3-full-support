@@ -1,8 +1,7 @@
 # renameColumn: Fallan los índices.
 # virtual fields en todos los select * into como en addForeignKey
-- hacer migraciones con el resto de funciones con la tabla material/leccion de la enre
   - dropForeignKey
   - alterColumn
   - addPrimaryKey
   - dropColumn
-  -
+# truncateTable: resetSequence
