@@ -4,3 +4,6 @@ protected/runtime/*
 !protected/runtime/.gitignore
 protected/data/*.db
 themes/classic/views/
+.kdev4
+yii2-sqlite3-full-support.kdev4
+

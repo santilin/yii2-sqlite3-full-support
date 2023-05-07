@@ -49,22 +49,3 @@ You can force the migration even if foreign keys can not be disabled defining th
 YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 ./yii migrate/fresh
 ```
 
-## migrate/fresh
-The command `migrate/fresh` drops all foreign keys prior to dropping tables. As sqlite doesn't return the name but the number of the foreign key, when the first foreign key is dropped, the second one becomes the first and so, when trying to delete the second one, it no longer exists. To fix this, you have to change this line of code:
-
-```
-diff --git a/console/controllers/MigrateController.php b/console/controllers/MigrateController.php
-index 17b6a7638..6f553a22d 100644
---- a/console/controllers/MigrateController.php
-+++ b/console/controllers/MigrateController.php
-@@ -301,7 +301,7 @@ class MigrateController extends BaseMigrateController
-
-         // First drop all foreign keys,
-         foreach ($schemas as $schema) {
--            foreach ($schema->foreignKeys as $name => $foreignKey) {
-+            foreach ( array_reverse($schema->foreignKeys, true) as $name => $foreignKey) {
-                 $db->createCommand()->dropForeignKey($name, $schema->name)->execute();
-                 $this->stdout("Foreign key $name dropped.\n");
-             }
-
-```
