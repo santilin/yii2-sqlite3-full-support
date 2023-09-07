@@ -468,7 +468,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
 			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
 				$identifier = (string)$token;
-				if( $identifier == $column || $identifier == $quoted_column) {
+				if( $identifier == $column || $identifier == $quoted_column
+					|| $identifier == "\"$column\"" /* strangely this can happen */ ) {
 					// found column definition for $column, set skipping on up until the next ,
 					$column_found = $skipping = true;
 				} else {
