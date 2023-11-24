@@ -113,12 +113,24 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
         return $this->loadTableConstraints($tableName, 'primaryKey');
     }
 
+    protected function pragma($pragma, $tableName)
+    {
+        if (strpos($tableName, '.') === false) {
+            $sql = "PRAGMA $pragma ( {$this->quoteTableName($tableName)} )";
+        } else {
+            list($dbName,$tableName)= $this->getTableNameParts($tableName);
+            $sql = "PRAGMA {$this->quoteTableName($dbName)}.$pragma ( {$this->quoteTableName($tableName)} )";
+        }
+        return $sql;
+    }
+
     /**
      * {@inheritdoc}
      */
     protected function loadTableForeignKeys($tableName)
     {
-        $foreignKeys = $this->db->createCommand('PRAGMA FOREIGN_KEY_LIST (' . $this->quoteValue($tableName) . ')')->queryAll();
+        $sql = $this->pragma('FOREIGN_KEY_LIST', $tableName);
+        $foreignKeys = $this->db->createCommand($sql)->queryAll();
         $foreignKeys = $this->normalizePdoRowKeyCase($foreignKeys, true);
         $foreignKeys = ArrayHelper::index($foreignKeys, null, 'table');
         ArrayHelper::multisort($foreignKeys, 'seq', SORT_ASC, SORT_NUMERIC);
@@ -220,13 +232,24 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     }
 
     /**
+     * Quotes a table name for use in a query.
+     * If the table name contains schema prefix, the prefix will also be properly quoted.
+     * If the table name is already quoted or contains '(' or '{{',
+     * then this method will do nothing.
+     * @param string $name table name
+     * @return string the properly quoted table name
+     * @see quoteSimpleTableName()
+     */
+
+
+    /**
      * Collects the table column metadata.
      * @param TableSchema $table the table metadata
      * @return bool whether the table exists in the database
      */
     protected function findColumns($table)
     {
-        $sql = 'PRAGMA table_info(' . $this->quoteSimpleTableName($table->name) . ')';
+        $sql = $this->pragma('FOREIGN_KEY_LIST', $table->name);
         $columns = $this->db->createCommand($sql)->queryAll();
         if (empty($columns)) {
             return false;
@@ -253,7 +276,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     protected function findConstraints($table)
     {
-        $sql = 'PRAGMA foreign_key_list(' . $this->quoteSimpleTableName($table->name) . ')';
+        $sql = $this->pragma('table_info', $table->name);
         $keys = $this->db->createCommand($sql)->queryAll();
         // @sct Reverse so that truncateTable works in migrations
         foreach (array_reverse($keys, true) as $key) {
@@ -284,7 +307,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     public function findUniqueIndexes($table)
     {
-        $sql = 'PRAGMA index_list(' . $this->quoteSimpleTableName($table->name) . ')';
+        $sql = $this->pragma('index_list', $table->name);
         $indexes = $this->db->createCommand($sql)->queryAll();
         $uniqueIndexes = [];
 
@@ -387,7 +410,9 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     private function loadTableColumnsInfo($tableName)
     {
-        $tableColumns = $this->db->createCommand('PRAGMA TABLE_INFO (' . $this->quoteValue($tableName) . ')')->queryAll();
+        $sql = $this->pragma('table_info', $tableName);
+
+        $tableColumns = $this->db->createCommand($sql)->queryAll();
         $tableColumns = $this->normalizePdoRowKeyCase($tableColumns, true);
 
         return ArrayHelper::index($tableColumns, 'cid');
@@ -404,7 +429,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     private function loadTableConstraints($tableName, $returnType)
     {
-        $indexes = $this->db->createCommand('PRAGMA INDEX_LIST (' . $this->quoteValue($tableName) . ')')->queryAll();
+        $sql = $this->pragma('index_list', $tableName);
         $indexes = $this->normalizePdoRowKeyCase($indexes, true);
         $tableColumns = null;
         if (!empty($indexes) && !isset($indexes[0]['origin'])) {
