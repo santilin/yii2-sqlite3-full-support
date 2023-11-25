@@ -249,7 +249,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     protected function findColumns($table)
     {
-        $sql = $this->pragma('FOREIGN_KEY_LIST', $table->name);
+        $sql = $this->pragma('TABLE_INFO', $table->name);
         $columns = $this->db->createCommand($sql)->queryAll();
         if (empty($columns)) {
             return false;
@@ -276,7 +276,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     protected function findConstraints($table)
     {
-        $sql = $this->pragma('table_info', $table->name);
+        $sql = $this->pragma('FOREIGN_KEY_LIST', $table->name);
         $keys = $this->db->createCommand($sql)->queryAll();
         // @sct Reverse so that truncateTable works in migrations
         foreach (array_reverse($keys, true) as $key) {
