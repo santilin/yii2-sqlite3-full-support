@@ -375,7 +375,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $indexes;
 	}
 
-
 	public function unquoteTableName($tableName)
 	{
         if (($pos=strpos($tableName, '.')) !== FALSE) {
@@ -387,7 +386,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
             return $this->db->schema->unquoteSimpleTableName($this->db->quoteSql($tableName));
         }
 	}
-
 
     /*
      * @return SqlToken the parsed fields definition part of the create table statement for $tableName
@@ -1102,12 +1100,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
             $this->buildHaving($query->having, $params),
         ];
 
+        // Sqlite3 doesn't allow database prefixes in select columns.
+        // https://www.sqlite.org/syntax/result-column.html
+        // This fixes only SELECT DISTINCT tablename.table.* used in dataprovider counts
+        $select = $clauses[0];
+        if (preg_match('/SELECT\s*(DISTINCT)?\s*({{.*?}})\.({{.*?}})\.\*/', $select, $matches)) {
+            $clauses[0] = str_replace($matches[2] . '.', '', $select);
+        }
+
         $sql = implode($this->separator, array_filter($clauses));
         $sql = $this->buildOrderByAndLimit($sql, $query->orderBy, $query->limit, $query->offset);
 
         if (!empty($query->orderBy)) {
             foreach ($query->orderBy as $expression) {
-                if ($expression instanceof ExpressionInterface) {
+                if ($expression instanceof ExpressionInterface)
+                {
                     $this->buildExpression($expression, $params);
                 }
             }
