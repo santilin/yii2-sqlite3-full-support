@@ -376,9 +376,16 @@ class QueryBuilder extends \yii\db\QueryBuilder
 	}
 
 
-	private function unquoteTableName($tableName)
+	public function unquoteTableName($tableName)
 	{
-		return $this->db->schema->unquoteSimpleTableName( $this->db->quoteSql( $tableName ));
+        if (($pos=strpos($tableName, '.')) !== FALSE) {
+            $db = substr($tableName,0,$pos);
+            $tbl = substr($tableName,$pos+1);
+            return $this->db->schema->unquoteSimpleTableName($this->db->quoteSql($db))
+                . '.' . $this->db->schema->unquoteSimpleTableName($this->db->quoteSql($tbl));
+        } else {
+            return $this->db->schema->unquoteSimpleTableName($this->db->quoteSql($tableName));
+        }
 	}
 
 
@@ -546,19 +553,20 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 			$this->setForeignKeysState(true);
 		}
+		$savepoint = 'drop_column_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
-		$return_queries[] = "SAVEPOINT drop_column_$unquoted_tablename";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "SAVEPOINT $savepoint";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 
 		// Indexes. Skip any index referencing $column
 		$return_queries = array_merge($return_queries,
 			$this->getIndexSqls($unquoted_tablename, $column));
 		/// @todo add views
-		$return_queries[] = "RELEASE drop_column_$unquoted_tablename";
+		$return_queries[] = "RELEASE $savepoint";
 		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
 		return implode(";", $return_queries);
 	}
@@ -569,7 +577,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		return $this->copyOrSkipUntilComma($fields_definitions_tokens, $offset, false);
 	}
 
-	/// copy until the next ,
+	/// skip until the next ,
 	private function skipUntilComma($fields_definitions_tokens, &$offset)
 	{
 		return $this->copyOrSkipUntilComma($fields_definitions_tokens, $offset, true);
@@ -786,17 +794,18 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 			$this->setForeignKeysState(true);
 		}
+        $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
-		$return_queries[] = "SAVEPOINT drop_foreign_$unquoted_tablename";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "SAVEPOINT $savepoint";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
-		$return_queries[] = "RELEASE drop_foreign_$unquoted_tablename";
+		$return_queries[] = "RELEASE $savepoint";
 		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
 		return implode(";", $return_queries);
     }
@@ -888,18 +897,19 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 			$this->setForeignKeysState(true);
 		}
+        $savepoint = 'alter_column_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
-		$return_queries[] = "SAVEPOINT alter_column_$unquoted_tablename";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename") . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "SAVEPOINT $savepoint";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName("temp_$unquoted_tablename");
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName("temp_$unquoted_tablename");
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 
 		// Create indexes for the new table
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
-		$return_queries[] = "RELEASE alter_column_$unquoted_tablename";
+		$return_queries[] = "RELEASE $savepoint";
 		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
 		return implode(";", $return_queries);
 	}
