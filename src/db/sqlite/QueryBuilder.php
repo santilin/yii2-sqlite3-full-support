@@ -719,7 +719,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
      */
     public function dropForeignKey($name, $tableName)
     {
-        // Simulate ALTER TABLE ... DROP COLUMN ...
+        // Simulate ALTER TABLE ... DROP FOREIGN KEY ...
         $return_queries = [];
 		/// @todo warn about triggers
 		/// @todo get create table additional info
@@ -918,7 +918,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
      * @param string $table the table that the primary key constraint will be added to.
      * @param string|array $columns comma separated string or array of columns that the primary key will consist of.
      * @return string the SQL statement for adding a primary key constraint to an existing table.
-     * @throws NotSupportedException this is not supported by SQLite
      */
     public function addPrimaryKey($name, $table, $columns)
     {
@@ -965,13 +964,99 @@ class QueryBuilder extends \yii\db\QueryBuilder
     /**
      * Builds a SQL statement for removing a primary key constraint to an existing table.
      * @param string $name the name of the primary key constraint to be removed.
-     * @param string $table the table that the primary key constraint will be removed from.
+     * @param string $tableName the table that the primary key constraint will be removed from.
      * @return string the SQL statement for removing a primary key constraint from an existing table.
      */
-    public function dropPrimaryKey($name, $table)
+    public function dropPrimaryKey($name, $tableName)
     {
-        throw new NotSupportedException(__METHOD__ . ' is not supported by SQLite.');
-	}
+        // Simulate ALTER TABLE ... DROP PRIMARY KEY...
+        $return_queries = [];
+		/// @todo warn about triggers
+		/// @todo get create table additional info
+        $ddl_fields_def = '';
+        $sql_fields_to_insert = [];
+        $skipping = false;
+        $primary_found = false;
+        $quoted_primary_name = $this->db->quoteColumnName($name);
+        $quoted_tablename = $this->db->quoteTableName($tableName);
+        $unquoted_tablename = $this->unquoteTableName($tableName);
+		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
+        $offset = 0;
+        $constraint_pos = 0;
+        // Traverse the tokens looking for either an identifier (field name) or a foreign key
+        while( $fields_definitions_tokens->offsetExists($offset)) {
+			$token = $fields_definitions_tokens[$offset++];
+			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
+			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
+				$identifier = (string)$token;
+				$sql_fields_to_insert[] = $identifier;
+			} else if( $token->type == \yii\db\SqlToken::TYPE_KEYWORD) {
+				$keyword = (string)$token;
+				if( $keyword == 'CONSTRAINT' || $keyword == 'PRIMARY') {
+					// Constraint key found
+					$other_offset = $offset;
+					if ($keyword == 'CONSTRAINT' ) {
+						$constraint_name = (string)$fields_definitions_tokens[$other_offset];
+					} else {
+						$constraint_name = $this->db->quoteColumnName(strval($constraint_pos));
+					}
+					if ( ($constraint_name == $quoted_primary_name)
+						|| (is_integer($name) && $constraint_pos == $name) ) {
+						// Found foreign key $name, skip it
+						$primary_found = true;
+						$skipping = true;
+						$offset = $other_offset;
+					}
+					$constraint_pos++;
+				}
+			} else {
+				/// @todo is there anything else. Look it up in the sqlite docs
+				die("Unexpected: $token");
+			}
+			if( !$skipping ) {
+				$ddl_fields_def .= $token . " ";
+			}
+			// Skip or keep until the next ,
+			while( $fields_definitions_tokens->offsetExists($offset) ) {
+				$skip_token = $fields_definitions_tokens[$offset];
+				if( !$skipping ) {
+					$ddl_fields_def .= (string)$skip_token . " ";
+				}
+				if ($skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
+					if( substr($ddl_fields_def,-1) != "\n" ) $ddl_fields_def .= "\n";
+					++$offset;
+					$skipping = false;
+					break;
+				}
+				++$offset;
+			}
+		}
+		if (!$primary_found) {
+			throw new InvalidParamException("primary key constraint '$name' not found in table '$tableName'");
+		}
+		$fks_save = $this->foreignKeysState();
+		if( $fks_save == true ) {
+			$this->setForeignKeysState(false);
+			if( $this->foreignKeysState() == true ) {
+				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
+		}
+        $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		$return_queries[] = "SAVEPOINT $savepoint";
+		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "DROP TABLE $quoted_tablename";
+		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+
+		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
+		/// @todo add views
+		$return_queries[] = "RELEASE $savepoint";
+		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		return implode(";\n", $return_queries);
+    }
 
     /**
      * @inheritDoc

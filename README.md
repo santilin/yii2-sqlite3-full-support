@@ -11,15 +11,15 @@ Manages DDL statements with attached databases
 - Alter column
 - Add foreign key
 - Add primary key
-- Drop foreign key (works with migrate/refresh which passes index of foreign key instead of name)
+- Drop primary key
+- Drop foreign key (works with migrate/fresh which passes index of foreign key instead of name)
 - Drop Unique
-	- Expression translating:
+- Expression translating:
 	- NOW() => 'CURRENT_TIMESTAMP'
 	- UNIX_TIMESTAMP() => CAST(strftime('%s', 'now') AS INT)
 	- CONCAT => ||
 
-## Todo
-- Drop Primary key
+## TODO
 - Add Check
 - Drop Check
 - Add default value

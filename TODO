@@ -1,4 +1,4 @@
-# renameColumn: Fallan los índices.
+# alterColumn: Fallan los índices.
 # virtual fields en todos los select * into como en addForeignKey
   - dropForeignKey
   - alterColumn
