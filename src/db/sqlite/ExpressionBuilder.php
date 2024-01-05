@@ -28,9 +28,11 @@ class ExpressionBuilder implements ExpressionBuilderInterface
     {
         $params = array_merge($params, $expression->params);
         $value = $expression->__toString();
-		if( $value == "NOW()" ) {
+		if (trim($value) == "AUTO_INCREMENT") {
+			$value = ""; // not needed
+		} else if ($value == "NOW()") {
 			return "CURRENT_TIMESTAMP";
-		} else if( $value == "UNIX_TIMESTAMP()" ) {
+		} else if ($value == "UNIX_TIMESTAMP()") {
 			return "CAST(strftime('%s', 'now') AS INT)";
 		} else {
 			$matches = null;
@@ -51,7 +53,8 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 					return ( join('||', $fields) );
 				}
 			}
-			return $value;
 		}
+		return $value;
 	}
+
 }

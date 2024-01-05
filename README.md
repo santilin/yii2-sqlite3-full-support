@@ -12,12 +12,13 @@ Manages DDL statements with attached databases
 - Add foreign key
 - Add primary key
 - Drop primary key
-- Drop foreign key (works with migrate/fresh which passes index of foreign key instead of name)
+- Drop foreign key (works well with migrate/fresh which passes index of foreign key instead of name)
 - Drop Unique
 - Expression translating:
 	- NOW() => 'CURRENT_TIMESTAMP'
 	- UNIX_TIMESTAMP() => CAST(strftime('%s', 'now') AS INT)
 	- CONCAT => ||
+	- AUTO_INCREMENT => Ignored
 
 ## TODO
 - Add Check
