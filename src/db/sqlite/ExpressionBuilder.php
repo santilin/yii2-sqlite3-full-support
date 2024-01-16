@@ -32,25 +32,30 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 			$value = ""; // not needed
 		} else if ($value == "NOW()") {
 			return "CURRENT_TIMESTAMP";
+		} else if ($value == "NOW(3)") {
+			return "strftime('%Y-%m-%d %H:%M:%f', 'now')";
 		} else if ($value == "UNIX_TIMESTAMP()") {
 			return "CAST(strftime('%s', 'now') AS INT)";
 		} else {
 			$matches = null;
-			if( preg_match_all("/\s*CONCAT\s*\((.*)\)/", $expression, $matches) ) {
-				$fields = $matches[1][0];
- 				if( preg_match_all("/\s*([^',]+)\s*|\s*'([^']+)'\s*,?/", $fields, $matches) ) {
-					$fields = [];
-					foreach( $matches[1] as $k => $v ) {
+			if( preg_match_all("/(.*)\bCONCAT\b\((.*?)\)(.*)/", $expression, $matches) ) {
+				$fields = $matches[2][0];
+  				if( preg_match_all(<<<regexp
+/\s*([^'`,]+)\s*,*|\s*['`]([^'`,]+)['`]\s*,*?/
+regexp
+					, $fields, $fld_matches)) {
+					$fields = []; // Adds ` to field names wihtout quotes
+					foreach ($fld_matches[0] as $k => $v ) {
 						$v = trim($v);
 						if( $v == '' ) {
-							if( $matches[2][$k] != '' ) {
-								$fields[] = "'".$matches[2][$k]."'";
+							if ($fld_matches[2][$k] != '' ) {
+								$fields[] = "`".$fld_matches[2][$k]."`";
 							}
 						} else {
 							$fields[] = $v;
 						}
 					}
-					return ( join('||', $fields) );
+					return ($matches[1][0] . join('||', $fields) . $matches[3][0]);
 				}
 			}
 		}
