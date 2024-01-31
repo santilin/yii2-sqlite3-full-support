@@ -41,17 +41,13 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 			if( preg_match_all("/(.*)\bCONCAT\b\((.*?)\)(.*)/", $expression, $matches) ) {
 				$fields = $matches[2][0];
   				if( preg_match_all(<<<regexp
-/\s*([^'`,]+)\s*,*|\s*['`]([^'`,]+)['`]\s*,*?/
+/\s*([^'`,]+)\s*|\s*['`]([^'`]+)['`]\s*/
 regexp
 					, $fields, $fld_matches)) {
 					$fields = []; // Adds ` to field names wihtout quotes
 					foreach ($fld_matches[0] as $k => $v ) {
 						$v = trim($v);
-						if( $v == '' ) {
-							if ($fld_matches[2][$k] != '' ) {
-								$fields[] = "`".$fld_matches[2][$k]."`";
-							}
-						} else {
+						if( $v != '' ) {
 							$fields[] = $v;
 						}
 					}
