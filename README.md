@@ -19,6 +19,7 @@ Manages DDL statements with attached databases
 	- UNIX_TIMESTAMP() => CAST(strftime('%s', 'now') AS INT)
 	- CONCAT => ||
 	- AUTO_INCREMENT => Ignored
+	- GROUP_CONCAT(expr SEPARATOR '/') => GROUP_CONCAT(expr, '/')
 
 ## TODO
 - Add Check

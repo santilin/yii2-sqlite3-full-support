@@ -53,6 +53,8 @@ regexp
 					}
 					return ($matches[1][0] . join('||', $fields) . $matches[3][0]);
 				}
+			} else if( preg_match_all("/(.*)\bGROUP_CONCAT\b\((.*?)\bSEPARATOR\b(.*)\)/", $expression, $matches) ) {
+				return "GROUP_CONCAT({$matches[2][0]}, {$matches[3][0]})";
 			}
 		}
 		return $value;
