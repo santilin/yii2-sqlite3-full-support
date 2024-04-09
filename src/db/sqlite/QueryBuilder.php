@@ -792,13 +792,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 			$this->setForeignKeysState(true);
 		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
         $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . $select_without_hidden_fields . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
@@ -947,12 +948,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 			$this->setForeignKeysState(true);
 		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT * FROM " . $this->db->quoteTableName($tmp_table_name);
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . $select_without_hidden_fields . " FROM " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
@@ -1042,13 +1044,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			}
 			$this->setForeignKeysState(true);
 		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
         $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . join(",", $sql_fields_to_insert) . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . $select_without_hidden_fields . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
 
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));

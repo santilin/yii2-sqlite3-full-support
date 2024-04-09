@@ -249,7 +249,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     protected function findColumns($table)
     {
-        $sql = $this->pragma('TABLE_INFO', $table->name);
+        $sql = $this->pragma('TABLE_XINFO', $table->name);
         $columns = $this->db->createCommand($sql)->queryAll();
         if (empty($columns)) {
             return false;
