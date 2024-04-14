@@ -410,7 +410,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     private function loadTableColumnsInfo($tableName)
     {
-        $sql = $this->pragma('table_info', $tableName);
+        $sql = $this->pragma('TABLE_XINFO', $tableName);
 
         $tableColumns = $this->db->createCommand($sql)->queryAll();
         $tableColumns = $this->normalizePdoRowKeyCase($tableColumns, true);
