@@ -462,7 +462,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $sql_fields_to_insert = [];
         $skipping = false;
         $column_found = false;
-        $quoted_column = $this->db->quoteColumnName($column);
         $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
@@ -473,8 +472,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
 			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
 				$identifier = (string)$token;
-				if( $identifier == $column || $identifier == $quoted_column
-					|| $identifier == "\"$column\"" /* strangely this can happen */ ) {
+				if (self::columnMatch($identifier,$column)) {
 					// found column definition for $column, set skipping on up until the next ,
 					$column_found = $skipping = true;
 				} else {
@@ -491,7 +489,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 						++$other_offset;
 					}
 					$foreign_field = (string)$fields_definitions_tokens[$other_offset];
-					if ($foreign_field == $column || $foreign_field == $quoted_column) {
+					if (self::columnMatch($foreign_field,$column)) {
 						// Found foreign key for $column, skip it
 						$skipping = true;
 						$offset = $other_offset;
@@ -841,7 +839,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $adding_column_type = false;
         $unquoted_tablename = $this->unquoteTableName($tableName);
         $quoted_tablename = $this->db->quoteTableName($tableName);
-        $quoted_column = $this->db->quoteColumnName($column);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);        $offset = 0;
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
@@ -850,7 +847,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
 				$identifier = (string)$token;
 				$sql_fields_to_insert[] = $identifier;
-				if( $identifier == $column || $identifier == $quoted_column) {
+				if (self::columnMatch($identifier,$column)) {
 					// found column definition for $column, set skipping on up until the next ,
 					$ddl_fields_def .= "$identifier $type";
 					$column_found = $skipping = true;
@@ -1241,4 +1238,16 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
         return trim($result);
     }
+
+    static protected function columnMatch($c1,$c2): bool
+    {
+		if (in_array($c1[0], ['[',"'",'"','`'])) {
+			$c1 = substr($c1,1,-1);
+		}
+		if (in_array($c2[0], ['[',"'",'"','`'])) {
+			$c2 = substr($c2,1,-1);
+		}
+		return $c1 == $c2;
+	}
+
 }
