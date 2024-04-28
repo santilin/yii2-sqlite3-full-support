@@ -487,11 +487,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				if( $keyword == 'CONSTRAINT' || $keyword == 'FOREIGN') {
 					// Constraint key found
 					$other_offset = $offset;
-					if ($keyword == 'CONSTRAINT' ) {
-						$constraint_name = (string)$fields_definitions_tokens[$other_offset];
-					} else {
-						$constraint_name = $this->db->quoteColumnName(strval($constraint_pos));
-					}
 					while( $fields_definitions_tokens->offsetExists($other_offset) && $fields_definitions_tokens[$other_offset]->type != \yii\db\SqlToken::TYPE_PARENTHESIS) {
 						++$other_offset;
 					}
