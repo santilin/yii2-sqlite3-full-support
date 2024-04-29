@@ -72,7 +72,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     /**
      * {@inheritdoc}
      */
-    protected $tableQuoteCharacter = '"';
+    protected $tableQuoteCharacter = '`';
     /**
      * {@inheritdoc}
      */
