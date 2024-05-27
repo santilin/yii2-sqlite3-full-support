@@ -670,7 +670,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
-		$ddl_fields_defs .= ",\nCONSTRAINT " . $this->db->quoteColumnName($name) . " FOREIGN KEY (" . join(",", (array)$columns) . ") REFERENCES $refTable(" . join(",", (array)$refColumns) . ")";
+		$ddl_fields_defs .= ",\nCONSTRAINT " . $this->db->quoteTableName($name) . " FOREIGN KEY (" . join(",", (array)$columns) . ") REFERENCES $refTable(" . join(",", (array)$refColumns) . ")";
 		if( $update != null ) {
 			$ddl_fields_defs .= " ON UPDATE $update";
 		}
@@ -721,7 +721,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $sql_fields_to_insert = [];
         $skipping = false;
         $foreign_found = false;
-        $quoted_foreign_name = $this->db->quoteColumnName($name);
+        $quoted_foreign_name = $this->db->quoteTableName($name);
         $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
@@ -742,7 +742,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					if ($keyword == 'CONSTRAINT' ) {
 						$constraint_name = (string)$fields_definitions_tokens[$other_offset];
 					} else {
-						$constraint_name = $this->db->quoteColumnName(strval($constraint_pos));
+						$constraint_name = $this->db->quoteTableName(strval($constraint_pos));
 					}
 					if ( ($constraint_name == $quoted_foreign_name)
 						|| (is_integer($name) && $constraint_pos == $name) ) {
@@ -933,7 +933,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
-		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteColumnName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
+		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
@@ -973,7 +973,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $sql_fields_to_insert = [];
         $skipping = false;
         $primary_found = false;
-        $quoted_primary_name = $this->db->quoteColumnName($name);
+        $quoted_primary_name = $this->db->quoteTableName($name);
         $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
@@ -994,7 +994,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					if ($keyword == 'CONSTRAINT' ) {
 						$constraint_name = (string)$fields_definitions_tokens[$other_offset];
 					} else {
-						$constraint_name = $this->db->quoteColumnName(strval($constraint_pos));
+						$constraint_name = $this->db->quoteTableName(strval($constraint_pos));
 					}
 					if ( ($constraint_name == $quoted_primary_name)
 						|| (is_integer($name) && $constraint_pos == $name) ) {
