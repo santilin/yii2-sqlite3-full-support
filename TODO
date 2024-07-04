@@ -5,3 +5,5 @@
   - addPrimaryKey
   - dropColumn
 # truncateTable: resetSequence
+# Estudiar si la tabla está vacía no hace falta desactivar las foreignkeys
+# Drop column: no borra la primary key si borramos una primary key
