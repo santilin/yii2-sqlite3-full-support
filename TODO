@@ -1,9 +1,6 @@
-# alterColumn: Fallan los índices.
-# virtual fields en todos los select * into como en addForeignKey
-  - dropForeignKey
-  - alterColumn
-  - addPrimaryKey
-  - dropColumn
+# alterColumn:
+- Fallan los índices.
+- Si un campo se transforma de nulo a no nulo, falla. Hay que poner el valor por defecto a los nulos en la consulta de creación de la nueva tabla.
 # truncateTable: resetSequence
 # Estudiar si la tabla está vacía no hace falta desactivar las foreignkeys
 # Drop column: no borra la primary key si borramos una primary key
