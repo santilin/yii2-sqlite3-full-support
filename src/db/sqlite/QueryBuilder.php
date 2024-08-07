@@ -415,19 +415,27 @@ class QueryBuilder extends \yii\db\QueryBuilder
 
     /**
      * Builds a SQL statement for creating a new index.
-     * @param string $name the name of the index. The name will be properly quoted by the method.
+     * @param string $name the name of the index. The name will be prefixed with the schema of $tableName.
      * @param string $table the table that the new index will be created for. The table name will be properly quoted by the method.
      * @param string|array $columns the column(s) that should be included in the index. If there are multiple columns,
      * separate them with commas or use an array to represent them. Each column name will be properly quoted
      * by the method, unless a parenthesis is found in the name.
      * @param bool $unique whether to add UNIQUE constraint on the created index.
      * @return string the SQL statement for creating a new index.
+	 *
+	 * @changes
+	 * 	- When $tableName has a schema name, the schema must be prepended to the index name
      */
-    public function createIndex($name, $table, $columns, $unique = false)
+    public function createIndex($name, $tableName, $columns, $unique = false)
     {
+		$schema = '';
+		if( ($pos=strpos($tableName, '.')) !== false ) {
+			$schema = $this->unquoteTableName(substr($tableName,0, $pos+1));
+			$tableName = substr($tableName, $pos+1);
+		}
 		$sql = ($unique ? 'CREATE UNIQUE INDEX ' : 'CREATE INDEX ')
-            . $this->db->quoteTableName($name) . ' ON '
-            . $this->db->quoteTableName($table)
+            . $this->db->quoteTableName($schema.$name) . ' ON '
+            . $this->db->quoteTableName($tableName)
             . ' (' . $this->buildColumns($columns) . ')';
         $sql = preg_replace_callback(
             '/(`.*`) ON (\{\{(%?)([\w\-]+)\}\}\.\{\{((%?)[\w\-]+)\\}\\})|(`.*`) ON (\{\{(%?)([\w\-]+)\.([\w\-]+)\\}\\})/',
@@ -536,17 +544,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
+		$should_disable_fks = false;
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				$should_disable_fks = false;
 			}
 			$this->setForeignKeysState(true);
 		}
 		$savepoint = 'drop_column_' . str_replace('.','_',$unquoted_tablename);
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' and name <> '$column' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = OFF";
+		}
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -559,7 +571,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$this->getIndexSqls($unquoted_tablename, $column));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		}
 		return implode(";", $return_queries);
 	}
 
@@ -678,17 +692,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
 		$return_queries = [];
+		$should_disable_fks = false;
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				$should_disable_fks = false;
 			}
 			$this->setForeignKeysState(true);
 		}
 		// https://sqlite.org/forum/info/143b3dca07642399
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = OFF";
+		}
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TEMP TABLE "
 			. $this->db->quoteTableName($tmp_table_name)
@@ -700,7 +718,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE add_foreign_key_to_$tmp_table_name";
-		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		}
 		return implode(";", $return_queries);
 	}
 
@@ -778,17 +798,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$foreign_found) {
 			throw new InvalidParamException("foreign key constraint '$name' not found in table '$tableName'");
 		}
+		$should_disable_fks = false;
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				$should_disable_fks = false;
 			}
 			$this->setForeignKeysState(true);
 		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
         $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = OFF";
+		}
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -799,7 +823,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		}
 		return implode(";", $return_queries);
     }
 
@@ -881,17 +907,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
+		$should_disable_fks = false;
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				$should_disable_fks = false;
 			}
 			$this->setForeignKeysState(true);
 		}
         $savepoint = 'alter_column_' . str_replace('.','_',$unquoted_tablename);
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = OFF";
+		}
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -903,7 +933,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		}
 		return implode(";", $return_queries);
 	}
 
@@ -934,16 +966,20 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
+		$should_disable_fks = true;
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				$should_disable_fks = false;
 			}
 			$this->setForeignKeysState(true);
 		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = OFF";
+		}
 		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -953,7 +989,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE add_primary_key_to_$tmp_table_name";
-		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		}
 		return implode(";", $return_queries);
     }
 
@@ -1030,17 +1068,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$primary_found) {
 			throw new InvalidParamException("primary key constraint '$name' not found in table '$tableName'");
 		}
+		$should_disable_fks = false;
 		$fks_save = $this->foreignKeysState();
 		if( $fks_save == true ) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
-				throw new \yii\db\Exception("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app parma 'disable_foreign_keys=true'");
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true'");
+				$should_disable_fks = false;
 			}
 			$this->setForeignKeysState(true);
 		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
         $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = OFF";
+		}
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -1051,7 +1093,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		if ($should_disable_fks) {
+			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+		}
 		return implode(";\n", $return_queries);
     }
 
