@@ -731,7 +731,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $sql_fields_to_insert = [];
         $skipping = false;
         $foreign_found = false;
-        $quoted_foreign_name = $this->db->quoteTableName($name);
+        $quoted_foreign_name = $this->db->quoteColumnName($name);
         $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
