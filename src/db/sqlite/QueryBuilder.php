@@ -688,7 +688,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$return_queries = [];
 		$fks_save = $this->foreignKeysState();
-		if( $fks_save == true ) {
+		if ($fks_save == true) {
 			$this->setForeignKeysState(false);
 			if( $this->foreignKeysState() == true ) {
 				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
@@ -696,7 +696,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		// https://sqlite.org/forum/info/143b3dca07642399
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TEMP TABLE "
 			. $this->db->quoteTableName($tmp_table_name)
