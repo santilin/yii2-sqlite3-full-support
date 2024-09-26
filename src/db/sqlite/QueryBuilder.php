@@ -654,18 +654,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
 		/// @todo warn about triggers
 		/// @todo get create table additional info
-		$schema = $refschema = '';
+		$schema = '';
 		if( ($pos=strpos($tableName, '.')) !== false ) {
 			$schema = $this->unquoteTableName(substr($tableName,0, $pos));
 			$tableName = substr($tableName, $pos+1);
 		}
 		if( ($pos_ref=strpos($refTable, '.')) !== false ) {
-			$refschema = substr($refTable, 0, $pos_ref);
-			$refTable = substr($refTable, $pos_ref+1);
-		}
-		if( ($schema != '' || $refschema != '' && $schema != $refschema) ) {
-            Yii::info("sqlite3 doesn't support foreign keys across different schemas", __METHOD__);
-			return '' ;
+			throw new DBException("\nERROR: sqlite3 doesn't support foreign keys across databases");
 		}
 		if ($schema != '' ) {
 			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($tableName);
@@ -687,15 +682,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$ddl_fields_defs .= " ON DELETE $delete";
 		}
 		$return_queries = [];
-		$fks_save = $this->foreignKeysState();
-		if ($fks_save == true) {
-			$this->setForeignKeysState(false);
-			if( $this->foreignKeysState() == true ) {
-				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
-			}
-		}
 		// https://sqlite.org/forum/info/143b3dca07642399
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
 		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TEMP TABLE "
 			. $this->db->quoteTableName($tmp_table_name)
@@ -707,9 +695,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE add_foreign_key_to_$tmp_table_name";
-		if ($fks_save) {
-			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-		}
 		return implode(";", $return_queries);
 	}
 
@@ -922,26 +907,26 @@ class QueryBuilder extends \yii\db\QueryBuilder
     /**
      * Builds a SQL statement for adding a primary key constraint to an existing table.
      * @param string $name the name of the primary key constraint.
-     * @param string $table the table that the primary key constraint will be added to.
+     * @param string $tableName the table that the primary key constraint will be added to.
      * @param string|array $columns comma separated string or array of columns that the primary key will consist of.
      * @return string the SQL statement for adding a primary key constraint to an existing table.
      */
-    public function addPrimaryKey($name, $table, $columns)
+    public function addPrimaryKey($name, $tableName, $columns)
     {
 		/// @todo warn about triggers
 		/// @todo get create table additional info
 		$return_queries = [];
 		$schema = '';
-		if( ($pos=strpos($table, '.')) !== false ) {
-			$schema = $this->unquoteTableName(substr($table, 0, $pos));
-			$table = substr($table, $pos+1);
-			$unquoted_tablename = $schema . '.' . $this->unquoteTableName($table);
-			$quoted_tablename = $schema . '.' . $this->db->quoteTableName($table);
-			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($table);
+		if( ($pos=strpos($tableName, '.')) !== false ) {
+			$schema = $this->unquoteTableName(substr($tableName, 0, $pos));
+			$tableName = substr($tableName, $pos+1);
+			$unquoted_tablename = $schema . '.' . $this->unquoteTableName($tableName);
+			$quoted_tablename = $schema . '.' . $this->db->quoteTableName($tableName);
+			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($tableName);
 		} else {
-			$unquoted_tablename = $this->unquoteTableName($table);
-			$quoted_tablename = $this->db->quoteTableName($table);
-			$tmp_table_name =  "temp_" . $this->unquoteTableName($table);
+			$unquoted_tablename = $this->unquoteTableName($tableName);
+			$quoted_tablename = $this->db->quoteTableName($tableName);
+			$tmp_table_name =  "temp_" . $this->unquoteTableName($tableName);
 		}
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
@@ -953,7 +938,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
 			}
 		}
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
@@ -1052,9 +1037,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
         $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . $select_without_hidden_fields . " FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');

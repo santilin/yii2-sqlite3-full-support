@@ -14,17 +14,17 @@ class Bootstrap implements BootstrapInterface
     /**
      * {@inheritdoc}
      */
-    public function bootstrap($app)
+    public function bootstrap($event)
     {
 		\Yii::$classMap['yii\db\sqlite\QueryBuilder'] = "@santilin/db/sqlite/QueryBuilder.php";
 		\Yii::$classMap['yii\db\sqlite\Schema'] = "@santilin/db/sqlite/Schema.php";
-		if( isset(Yii::$app->db) ) {
-			if( empty(getenv('YII2_SQLITE3_DISABLE_FOREIGN_CHECKS')) ) 	 {
-				if ( !(Yii::$app->params['sqlite3_disable_foreign_keys']??false) ) {
-					Yii::$app->db->on(Connection::EVENT_AFTER_OPEN, function($e) {
+		if (isset(Yii::$app->db) ) {
+			if (empty(getenv('YII2_SQLITE3_DISABLE_FOREIGN_CHECKS'))) {
+				Yii::$app->db->on(Connection::EVENT_AFTER_OPEN, function($e) {
+					if (empty(Yii::$app->params['sqlite3_disable_foreign_keys'])) {
 						Yii::$app->db->createCommand()->checkIntegrity(true)->execute();
-					});
-				}
+					}
+				});
 			}
 		}
 	}
