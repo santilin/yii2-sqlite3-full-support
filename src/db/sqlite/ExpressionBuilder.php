@@ -30,6 +30,8 @@ class ExpressionBuilder implements ExpressionBuilderInterface
         $value = $expression->__toString();
 		if (trim($value) == "AUTO_INCREMENT") {
 			$value = ""; // not needed
+		} if (trim($value) == "UNSIGNED") {
+			$value = ""; // not supported
 		} else if ($value == "NOW()") {
 			return "CURRENT_TIMESTAMP";
 		} else if ($value == "NOW(3)") {
