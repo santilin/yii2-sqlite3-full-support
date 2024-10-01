@@ -113,17 +113,6 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
         return $this->loadTableConstraints($tableName, 'primaryKey');
     }
 
-    protected function pragma($pragma, $tableName)
-    {
-        if (strpos($tableName, '.') === false) {
-            $sql = "PRAGMA $pragma ( {$this->quoteTableName($tableName)} )";
-        } else {
-            list($dbName,$tableName)= $this->getTableNameParts($tableName);
-            $sql = "PRAGMA {$this->quoteTableName($dbName)}.$pragma ( {$this->quoteTableName($tableName)} )";
-        }
-        return $sql;
-    }
-
     /**
      * {@inheritdoc}
      */
@@ -230,17 +219,6 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     {
         return Yii::createObject(ColumnSchemaBuilder::className(), [$type, $length]);
     }
-
-    /**
-     * Quotes a table name for use in a query.
-     * If the table name contains schema prefix, the prefix will also be properly quoted.
-     * If the table name is already quoted or contains '(' or '{{',
-     * then this method will do nothing.
-     * @param string $name table name
-     * @return string the properly quoted table name
-     * @see quoteSimpleTableName()
-     */
-
 
     /**
      * Collects the table column metadata.
@@ -411,7 +389,6 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     private function loadTableColumnsInfo($tableName)
     {
         $sql = $this->pragma('TABLE_XINFO', $tableName);
-
         $tableColumns = $this->db->createCommand($sql)->queryAll();
         $tableColumns = $this->normalizePdoRowKeyCase($tableColumns, true);
 
@@ -510,4 +487,17 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     {
         return strncmp($identifier, 'sqlite_', 7) === 0;
     }
+
+    protected function pragma($pragma, $tableName)
+    {
+        if (strpos($tableName, '.') === false) {
+            $sql = "PRAGMA $pragma ( {$this->quoteTableName($tableName)} )";
+        } else {
+            list($dbName,$tableName)= $this->getTableNameParts($tableName);
+            $sql = "PRAGMA {$this->quoteTableName($dbName)}.$pragma ( {$this->quoteTableName($tableName)} )";
+        }
+        return $sql;
+    }
+
+
 }

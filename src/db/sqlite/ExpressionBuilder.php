@@ -27,18 +27,18 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 	public function build(ExpressionInterface $expression, array &$params = [])
     {
         $params = array_merge($params, $expression->params);
-        $value = $expression->__toString();
-		if (trim($value) == "AUTO_INCREMENT") {
+        $value = trim($expression->__toString());
+		if ($value == "AUTO_INCREMENT") {
 			$value = ""; // not needed
-		} if (trim($value) == "UNSIGNED") {
+		} elseif (trim($value) == "UNSIGNED") {
 			$value = ""; // not supported
-		} else if ($value == "NOW()") {
+		} elseif ($value == "NOW()") {
 			return "CURRENT_TIMESTAMP";
-		} else if ($value == "NOW(3)") {
+		} elseif ($value == "NOW(3)") {
 			return "strftime('%Y-%m-%d %H:%M:%f', 'now')";
-		} else if ($value == "UNIX_TIMESTAMP()") {
+		} elseif ($value == "UNIX_TIMESTAMP()") {
 			return "CAST(strftime('%s', 'now') AS INT)";
-		} else if( preg_match_all("/(.*)\bCONCAT\b\((.*?)\)(.*)/", $expression, $matches) ) {
+		} elseif( preg_match_all("/(.*)\bCONCAT\b\((.*?)\)(.*)/", $expression, $matches) ) {
 			$fields = $matches[2][0];
 			if( preg_match_all(<<<regexp
 /\s*([^'`,]+)\s*|\s*['`]([^'`]+)['`]\s*/
