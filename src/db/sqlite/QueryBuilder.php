@@ -931,13 +931,13 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
-		$fks_save = $this->foreignKeysState();
-		if( $fks_save == true ) {
-			$this->setForeignKeysState(false);
-			if( $this->foreignKeysState() == true ) {
-				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
-			}
-		}
+// 		$fks_save = $this->foreignKeysState();
+// 		if( $fks_save == true ) {
+// 			$this->setForeignKeysState(false);
+// 			if( $this->foreignKeysState() == true ) {
+// 				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
+// 			}
+// 		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
@@ -949,9 +949,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE add_primary_key_to_$tmp_table_name";
-		if ($fks_save) {
-			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-		}
+// 		if ($fks_save) {
+// 			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
+// 		}
 		return implode(";", $return_queries);
     }
 
