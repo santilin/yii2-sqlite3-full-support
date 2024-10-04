@@ -833,8 +833,17 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $skipping = false;
         $column_found = false;
         $adding_column_type = false;
-        $unquoted_tablename = $this->unquoteTableName($tableName);
-        $quoted_tablename = $this->db->quoteTableName($tableName);
+		$schema = '';
+		if( ($pos=strpos($tableName, '.')) !== false ) {
+			$schema = $this->unquoteTableName(substr($tableName, 0, $pos)) . '.';
+			$tableName = substr($tableName, $pos+1);
+			$unquoted_tablename = $schema . $this->unquoteTableName($tableName);
+			$quoted_tablename = $schema . $this->db->quoteTableName($tableName);
+		} else {
+			$unquoted_tablename = $this->unquoteTableName($tableName);
+			$quoted_tablename = $this->db->quoteTableName($tableName);
+		}
+		$tmp_table_name =  "{{%" . uniqid('tmp_table'). '}}';
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
 		$offset = 0;
@@ -877,30 +886,17 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
-		$fks_save = $this->foreignKeysState();
-		if( $fks_save == true ) {
-			$this->setForeignKeysState(false);
-			if( $this->foreignKeysState() == true ) {
-				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
-			}
-		}
-        $savepoint = 'alter_column_' . str_replace('.','_',$unquoted_tablename);
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+        $savepoint = uniqid('alter_column_');
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
 		$return_queries[] = "SAVEPOINT $savepoint";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT $select_without_hidden_fields FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
-
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT $select_without_hidden_fields FROM " . $this->db->quoteTableName($tmp_table_name);
 		// Create indexes for the new table
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		if ($fks_save) {
-			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-		}
 		return implode(";", $return_queries);
 	}
 
@@ -931,16 +927,9 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
-// 		$fks_save = $this->foreignKeysState();
-// 		if( $fks_save == true ) {
-// 			$this->setForeignKeysState(false);
-// 			if( $this->foreignKeysState() == true ) {
-// 				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
-// 			}
-// 		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
-		$return_queries[] = "SAVEPOINT add_primary_key_to_$tmp_table_name";
+        $savepoint = 'add_primary_key_to_' . str_replace('.','_',$tmp_table_name);
+		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
@@ -948,10 +937,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
-		$return_queries[] = "RELEASE add_primary_key_to_$tmp_table_name";
-// 		if ($fks_save) {
-// 			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-// 		}
+		$return_queries[] = "RELEASE $savepoint";
 		return implode(";", $return_queries);
     }
 
