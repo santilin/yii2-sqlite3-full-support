@@ -97,7 +97,8 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     protected function loadTableSchema($name)
     {
         $table = new TableSchema();
-        $table->name = $name;
+        list($table->schemaName,$table->name)= $this->getTableNameParts($name);
+
         $table->fullName = $name;
 
         if ($this->findColumns($table)) {
