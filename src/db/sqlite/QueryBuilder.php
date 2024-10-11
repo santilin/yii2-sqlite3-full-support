@@ -470,12 +470,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $sql_fields_to_insert = [];
         $skipping = false;
         $column_found = false;
-        $quoted_tablename = $this->db->quoteTableName($tableName);
-        $unquoted_tablename = $this->unquoteTableName($tableName);
+		$schema = '';
+		if( ($pos=strpos($tableName, '.')) !== false ) {
+			$schema = $this->unquoteTableName(substr($tableName, 0, $pos)) . '.';
+			$tableName = substr($tableName, $pos+1);
+			$unquoted_tablename = $schema . $this->unquoteTableName($tableName);
+			$quoted_tablename = $schema . $this->db->quoteTableName($tableName);
+		} else {
+			$unquoted_tablename = $this->unquoteTableName($tableName);
+			$quoted_tablename = $this->db->quoteTableName($tableName);
+		}
+		$tmp_table_name =  "{{%" . uniqid('tmp_table'). '}}';
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
         $offset = 0;
         // Traverse the tokens looking for either an identifier (field name) or a foreign key
-        while( $fields_definitions_tokens->offsetExists($offset)) {
+        while ($fields_definitions_tokens->offsetExists($offset)) {
 			$token = $fields_definitions_tokens[$offset++];
 			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
 			if( $token->type == \yii\db\SqlToken::TYPE_IDENTIFIER ) {
@@ -516,22 +525,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 				if( !$skipping ) {
 					$ddl_fields_def .= (string)$skip_token . " ";
 				}
-// 				if( $skip_token->type == \yii\db\SqlToken::TYPE_TOKEN && strtoupper((string)$skip_token) == 'GENERATED' ) {
-// 					++$offset;
-// 					while( $fields_definitions_tokens->offsetExists($offset) ) {
-// 						$skip_token = $fields_definitions_tokens[$offset];
-// 						$s = $skip_token->content;
-// 						if( $skip_token->type == \yii\db\SqlToken::TYPE_KEYWORD && strtoupper((string)$skip_token) == 'VIRTUAL') {
-// 							++$offset;
-// 							break;
-// 						}
-// 						++$offset;
-// 					}
-// 					if (!$fields_definitions_tokens->offsetExists($offset) ) {
-// 						throw new DBException($tableName . '.' . $column . ":Virtual field definition error");
-// 					}
-// 					$skip_token = $fields_definitions_tokens[$offset];
-// 				}
 				if( $skip_token->type == \yii\db\SqlToken::TYPE_OPERATOR && (string)$skip_token == ',') {
 					if( substr($ddl_fields_def, -1) != "\n" ) $ddl_fields_def .= "\n";
 					++$offset;
@@ -544,31 +537,18 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
-		$fks_save = $this->foreignKeysState();
-		if( $fks_save == true ) {
-			$this->setForeignKeysState(false);
-			if( $this->foreignKeysState() == true ) {
-				throw new IntegrityException("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. Set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 or define the app param 'sqlite3_disable_foreign_keys=true' so that foreign key checks are not enabled at this point");
-			}
-		}
-		$savepoint = 'drop_column_' . str_replace('.','_',$unquoted_tablename);
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' and name <> '$column' order by cid asc")->queryScalar();
-		$return_queries[] = "PRAGMA foreign_keys = OFF";
+		$savepoint = uniqid('drop_column_');
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') where name <> :column order by cid asc", ['column' => $column])->queryScalar();
 		$return_queries[] = "SAVEPOINT $savepoint";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_def, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT $select_without_hidden_fields FROM " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl');
-
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT $select_without_hidden_fields FROM " . $this->db->quoteTableName($tmp_table_name);
 		// Indexes. Skip any index referencing $column
 		$return_queries = array_merge($return_queries,
 			$this->getIndexSqls($unquoted_tablename, $column));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		if ($fks_save) {
-			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-		}
 		return implode(";", $return_queries);
 	}
 
@@ -656,22 +636,21 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		/// @todo get create table additional info
 		$schema = '';
 		if( ($pos=strpos($tableName, '.')) !== false ) {
-			$schema = $this->unquoteTableName(substr($tableName,0, $pos));
+			$schema = $this->unquoteTableName(substr($tableName, 0, $pos)) . '.';
 			$tableName = substr($tableName, $pos+1);
-		}
-		if( ($pos_ref=strpos($refTable, '.')) !== false ) {
-			throw new DBException("\nERROR: sqlite3 doesn't support foreign keys across databases");
-		}
-		if ($schema != '' ) {
-			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($tableName);
-			$schema.='.';
 			$unquoted_tablename = $schema . $this->unquoteTableName($tableName);
 			$quoted_tablename = $schema . $this->db->quoteTableName($tableName);
 		} else {
 			$unquoted_tablename = $this->unquoteTableName($tableName);
 			$quoted_tablename = $this->db->quoteTableName($tableName);
-			$tmp_table_name =  "temp_" . $this->unquoteTableName($tableName);
 		}
+		if( ($pos_ref=strpos($refTable, '.')) !== false ) {
+			$refSchema = $this->unquoteTableName(substr($refTable, 0, $pos)) . '.';
+			if ($refSchema != $schema) {
+				throw new DBException("\nERROR: sqlite3 doesn't support foreign keys across databases");
+			}
+		}
+		$tmp_table_name =  "{{%" . uniqid('tmp_table'). '}}';
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ",\nCONSTRAINT " . $this->db->quoteTableName($name) . " FOREIGN KEY (" . join(",", (array)$columns) . ") REFERENCES $refTable(" . join(",", (array)$refColumns) . ")";
@@ -684,17 +663,15 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = [];
 		// https://sqlite.org/forum/info/143b3dca07642399
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
-		$return_queries[] = "SAVEPOINT add_foreign_key_to_$tmp_table_name";
-		$return_queries[] = "CREATE TEMP TABLE "
-			. $this->db->quoteTableName($tmp_table_name)
-			. " AS SELECT * FROM $quoted_tablename";
+		$savepoint = uniqid('add_foreign_key_to_');
+		$return_queries[] = "SAVEPOINT $savepoint";
+		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
 		$return_queries[] = "INSERT INTO $quoted_tablename SELECT $select_without_hidden_fields FROM " . $this->db->quoteTableName($tmp_table_name);
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
-		$return_queries[] = "RELEASE add_foreign_key_to_$tmp_table_name";
+		$return_queries[] = "RELEASE $savepoint";
 		return implode(";", $return_queries);
 	}
 
@@ -832,7 +809,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $sql_fields_to_insert = [];
         $skipping = false;
         $column_found = false;
-        $adding_column_type = false;
 		$schema = '';
 		if( ($pos=strpos($tableName, '.')) !== false ) {
 			$schema = $this->unquoteTableName(substr($tableName, 0, $pos)) . '.';
@@ -845,8 +821,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$tmp_table_name =  "{{%" . uniqid('tmp_table'). '}}';
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
-        // Traverse the tokens looking for either an identifier (field name) or a foreign key
 		$offset = 0;
+        // Traverse the tokens looking for either an identifier (field name) or a foreign key
         while( $fields_definitions_tokens->offsetExists($offset)) {
 			$token = $fields_definitions_tokens[$offset++];
 			// These searchs could be done with another SqlTokenizer, but I don't konw how to do them, the documentation for sqltokenizer si really scarse.
@@ -914,27 +890,25 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = [];
 		$schema = '';
 		if( ($pos=strpos($tableName, '.')) !== false ) {
-			$schema = $this->unquoteTableName(substr($tableName, 0, $pos));
+			$schema = $this->unquoteTableName(substr($tableName, 0, $pos)) . '.';
 			$tableName = substr($tableName, $pos+1);
-			$unquoted_tablename = $schema . '.' . $this->unquoteTableName($tableName);
-			$quoted_tablename = $schema . '.' . $this->db->quoteTableName($tableName);
-			$tmp_table_name =  "temp_{$schema}_" . $this->unquoteTableName($tableName);
+			$unquoted_tablename = $schema . $this->unquoteTableName($tableName);
+			$quoted_tablename = $schema . $this->db->quoteTableName($tableName);
 		} else {
 			$unquoted_tablename = $this->unquoteTableName($tableName);
 			$quoted_tablename = $this->db->quoteTableName($tableName);
-			$tmp_table_name =  "temp_" . $this->unquoteTableName($tableName);
 		}
+		$tmp_table_name =  "{{%" . uniqid('tmp_table'). '}}';
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
-        $savepoint = 'add_primary_key_to_' . str_replace('.','_',$tmp_table_name);
+        $savepoint = uniqid('add_primary_key_to_');
 		$return_queries[] = "SAVEPOINT $savepoint";
-		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
+		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
 		$return_queries[] = "CREATE TABLE $quoted_tablename (" . trim($ddl_fields_defs, " \n\r\t,") . ")";
-		$return_queries[] = "INSERT INTO $quoted_tablename SELECT " . $select_without_hidden_fields . " FROM " . $this->db->quoteTableName($tmp_table_name);
-		$return_queries[] = "DROP TABLE " . $this->db->quoteTableName($tmp_table_name);
+		$return_queries[] = "INSERT INTO $quoted_tablename SELECT $select_without_hidden_fields FROM " . $this->db->quoteTableName($tmp_table_name);
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";

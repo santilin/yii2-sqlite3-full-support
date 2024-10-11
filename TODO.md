@@ -1,5 +1,8 @@
 # Refactor:
 	- AlterColumn es el modelo
+	- Hechos:
+		- AlterColumn
+		- Dropcolumn
 # alterColumn:
 - Fallan los índices.
 - Si un campo se transforma de nulo a no nulo, falla. Hay que poner el valor por defecto a los nulos en la consulta de creación de la nueva tabla.
