@@ -9,3 +9,4 @@
 # truncateTable: resetSequence
 # Estudiar si la tabla está vacía no hace falta desactivar las foreignkeys
 # Drop column: no borra la primary key si borramos una primary key
+# addColumn: if primary key, add it not primary key and then add primary key
