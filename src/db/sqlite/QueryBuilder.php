@@ -537,9 +537,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
-		$this->checkIntegrity(false);
 		if ($this->foreignKeysState()) {
-			Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			$this->setForeignKeysState(false);
+			if ($this->foreignKeysState()) {
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
 		}
 		$savepoint = uniqid('drop_column_');
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') where name <> :column order by cid asc", ['column' => $column])->queryScalar();
@@ -666,11 +669,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$return_queries = [];
 		// https://sqlite.org/forum/info/143b3dca07642399
-		$this->checkIntegrity(false);
-		if ($this->foreignKeysState()) {
-			Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
-		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
+		if ($this->foreignKeysState()) {
+			$this->setForeignKeysState(false);
+			if ($this->foreignKeysState()) {
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
+		}
 		$savepoint = uniqid('add_foreign_key_to_');
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
@@ -757,12 +763,15 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$foreign_found) {
 			throw new InvalidParamException("foreign key constraint '$name' not found in table '$tableName'");
 		}
-		$this->checkIntegrity(false);
-		if ($this->foreignKeysState()) {
-			Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
-		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-        $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
+		if ($this->foreignKeysState()) {
+			$this->setForeignKeysState(false);
+			if ($this->foreignKeysState()) {
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
+		}
+		$savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
@@ -867,9 +876,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$column_found) {
 			throw new InvalidParamException("column '$column' not found in table '$tableName'");
 		}
-		$this->checkIntegrity(false);
 		if ($this->foreignKeysState()) {
-			Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			$this->setForeignKeysState(false);
+			if ($this->foreignKeysState()) {
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
 		}
 		$savepoint = uniqid('alter_column_');
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
@@ -911,12 +923,15 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
-		$this->checkIntegrity(false);
-		if ($this->foreignKeysState()) {
-			Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
-		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
-        $savepoint = uniqid('add_primary_key_to_');
+		if ($this->foreignKeysState()) {
+			$this->setForeignKeysState(false);
+			if ($this->foreignKeysState()) {
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
+		}
+		$savepoint = uniqid('add_primary_key_to_');
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -1001,12 +1016,15 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$primary_found) {
 			throw new InvalidParamException("primary key constraint '$name' not found in table '$tableName'");
 		}
-		$this->checkIntegrity(false);
-		if ($this->foreignKeysState()) {
-			Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
-		}
 		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
-        $savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
+		if ($this->foreignKeysState()) {
+			$this->setForeignKeysState(false);
+			if ($this->foreignKeysState()) {
+				Yii::warning("Unable to disable foreign_keys in " . __FUNCTION__ . ", probably due to being inside a transaction. If you get an IntegrityException, set YII2_SQLITE3_DISABLE_FOREIGN_CHECKS=1 before running the migration or define the app param 'sqlite3_disable_foreign_keys=true'");
+			}
+			$this->setForeignKeysState(true);
+		}
+		$savepoint = 'drop_foreign_' . str_replace('.','_',$unquoted_tablename);
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TABLE " . $this->db->quoteTableName($unquoted_tablename . '_ddl') . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "PRAGMA foreign_keys = OFF";
