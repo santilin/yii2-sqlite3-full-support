@@ -783,9 +783,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		if ($fks_save) {
-			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-		}
 		return implode(";", $return_queries);
     }
 
@@ -1036,9 +1033,6 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$return_queries = array_merge($return_queries, $this->getIndexSqls($unquoted_tablename));
 		/// @todo add views
 		$return_queries[] = "RELEASE $savepoint";
-		if ($fks_save) {
-			$return_queries[] = "PRAGMA foreign_keys = $fks_save";
-		}
 		return implode(";\n", $return_queries);
     }
 
