@@ -312,6 +312,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			return array_column($indexes, "sql");
 		}
 		$quoted_skip_column = $this->db->quoteColumnName($skipColumn);
+		$double_quoted_skip_column = '"' . $skipColumn . '"';
 		if ($newColumn == null ) {
 			// Skip indexes which contain this column
 			foreach( $indexes as $key => $index ) {
@@ -329,6 +330,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 					if( $this->recursiveTokenHasToken($token, [
 						$skipColumn => \yii\db\SqlToken::TYPE_IDENTIFIER,
 						$quoted_skip_column => \yii\db\SqlToken::TYPE_IDENTIFIER,
+						$double_quoted_skip_column => \yii\db\SqlToken::TYPE_IDENTIFIER,
 					] )) {
 							$found = true;
 							unset($indexes[$key]);
@@ -707,6 +709,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
         $skipping = false;
         $foreign_found = false;
         $quoted_foreign_name = $this->db->quoteColumnName($name);
+		$double_quoted_foreign_name = '"' . $name . '"';
         $quoted_tablename = $this->db->quoteTableName($tableName);
         $unquoted_tablename = $this->unquoteTableName($tableName);
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
@@ -730,7 +733,8 @@ class QueryBuilder extends \yii\db\QueryBuilder
 						$constraint_name = $this->db->quoteTableName(strval($constraint_pos));
 					}
 					if ( ($constraint_name == $quoted_foreign_name)
-						|| (is_integer($name) && $constraint_pos == $name) ) {
+						|| ($constraint_name == $double_quoted_foreign_name)
+						|| (is_integer($name) && $constraint_pos == $name)) {
 						// Found foreign key $name, skip it
 						$foreign_found = true;
 						$skipping = true;
