@@ -645,7 +645,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		/// @todo get create table additional info
 		$schema = '';
 		if( ($pos=strpos($tableName, '.')) !== false ) {
-			$schema = $this->unquoteTableName(substr($tableName, 0, $pos)) . '.';
+			$schema = substr($tableName, 0, $pos) . '.';
 			$tableName = substr($tableName, $pos+1);
 			$unquoted_tablename = $schema . $this->unquoteTableName($tableName);
 			$quoted_tablename = $schema . $this->db->quoteTableName($tableName);
@@ -654,10 +654,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$quoted_tablename = $this->db->quoteTableName($tableName);
 		}
 		if( ($pos_ref=strpos($refTable, '.')) !== false ) {
-			$refSchema = $this->unquoteTableName(substr($refTable, 0, $pos)) . '.';
+			$refSchema = substr($refTable, 0, $pos) . '.';
 			if ($refSchema != $schema) {
 				throw new DBException("\nERROR: sqlite3 doesn't support foreign keys across databases");
 			}
+			// remove schema part to avoid syntax error
+			$refTable = $this->db->quoteTableName(substr($refTable, $pos+1));
 		}
 		$tmp_table_name =  "{{%" . uniqid('tmp_table'). '}}';
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
