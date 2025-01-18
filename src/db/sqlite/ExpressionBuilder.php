@@ -28,40 +28,58 @@ class ExpressionBuilder implements ExpressionBuilderInterface
     {
         $params = array_merge($params, $expression->params);
         $value = trim($expression->__toString());
-		if ($value == "AUTO_INCREMENT") {
-			$value = ""; // not needed
-		} elseif (trim($value) == "UNSIGNED") {
-			$value = ""; // not supported
-		} elseif ($value == "NOW()") {
-			return "CURRENT_TIMESTAMP";
-		} elseif ($value == "NOW(3)") {
-			return "strftime('%Y-%m-%d %H:%M:%f', 'now')";
-		} elseif ($value == "UNIX_TIMESTAMP()") {
-			return "CAST(strftime('%s', 'now') AS INT)";
-		} elseif( preg_match_all("/(.*)\bCONCAT\b\((.*?)\)(.*)/", $expression, $matches) ) {
-			$fields = $matches[2][0];
-			if( preg_match_all(<<<regexp
-/\s*([^'`,]+)\s*|\s*['`]([^'`]+)['`]\s*/
+		$might_need_changes = true;
+		while ($might_need_changes) {
+			if ($value == "AUTO_INCREMENT") {
+				$value = ""; // not needed
+			} elseif (trim($value) == "UNSIGNED") {
+				$value = ""; // not supported
+			} elseif ($value == "NOW()") {
+				return "CURRENT_TIMESTAMP";
+			} elseif ($value == "NOW(3)") {
+				return "strftime('%Y-%m-%d %H:%M:%f', 'now')";
+			} elseif ($value == "UNIX_TIMESTAMP()") {
+				return "CAST(strftime('%s', 'now') AS INT)";
+			} elseif( preg_match_all("/(.*)\bCONCAT\b\(((?:[^()]|\([^()]*\))*)\)(.*)/", $value, $matches) ) {
+// simple: /(.*)\bCONCAT\b\((.*?)\)(.*)/
+				$concat_params = $matches[2][0];
+				if( preg_match_all(<<<regexp
+/(((?:[^,()]|\([^()]*\))+)\s*,{0,1})/
 regexp
-				, $fields, $fld_matches)) {
-				$fields = []; // Adds ` to field names wihtout quotes
-				foreach ($fld_matches[0] as $k => $v ) {
-					$v = trim($v);
-					if( $v != '' ) {
-						// must coallesce fields to '' to avoid getting a whole null string
-						if (preg_match('/("[a-zA-Z_]([a-zA-Z0-9_]*)")|([a-zA-Z_]([a-zA-Z0-9_]*))/', $v)) {
-							$fields[] = "COALESCE($v, '')";
-						} else {
-							$fields[] = $v;
+// simple: parameters /\s*([^'`,]+)\s*|\s*['`]([^'`]+)['`]\s*/
+					, $concat_params, $concat_params_matches, PREG_SET_ORDER)) {
+					$sqlite_concat_params = []; // Adds ` to field names wihtout quotes
+					foreach ($concat_params_matches as $concat_param) {
+						$v = trim($concat_param[2]);
+						if( $v != '' ) {
+							// must coallesce fields to '' to avoid getting a whole null string
+							if (preg_match('/("[a-zA-Z_]([a-zA-Z0-9_]*)")|([a-zA-Z_]([a-zA-Z0-9_]*))/', $v)) {
+								$sqlite_concat_params[] = "COALESCE($v, '')";
+							} else {
+								$sqlite_concat_params[] = $v;
+							}
 						}
 					}
+					$value = $matches[1][0] . join('||', $sqlite_concat_params) . $matches[3][0];
+					$might_need_changes = true;
 				}
-				$value = $matches[1][0] . join('||', $fields) . $matches[3][0];
+			} else if (preg_match_all("/(.*)\bGROUP_CONCAT\b\((.*?)\bSEPARATOR\b(.*)\)/", $value, $matches) ) {
+				$value = "GROUP_CONCAT({$matches[2][0]}, {$matches[3][0]})";
+				$might_need_changes = true;
+			} else if (preg_match(<<<regexp
+/\bIF\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)/
+regexp
+				, $value, $matches)) {
+	// @todo: /\bIF\b\(\s*([^,()]*(?:'[^']*'|"[^"]*")?[^,()]*)\s*,\s*([^,()]*(?:'[^']*'|"[^"]*")?[^,()]*)\s*,\s*([^,()]*(?:'[^']*'|"[^"]*")?[^,()]*)\s*\)/
+				$value = "CASE WHEN {$matches[1]} THEN {$matches[2]} ELSE {$matches[3]} END";
+				$might_need_changes = true;
+			} else {
+				return $value;
 			}
-		} else if( preg_match_all("/(.*)\bGROUP_CONCAT\b\((.*?)\bSEPARATOR\b(.*)\)/", $expression, $matches) ) {
-			return "GROUP_CONCAT({$matches[2][0]}, {$matches[3][0]})";
 		}
-		return $value;
 	}
 
 }
+
+
+// /(.*)\bCONCAT\b\(((?:[^()]|\([^()]*\))*)\)(.*)/
