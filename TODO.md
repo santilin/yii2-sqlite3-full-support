@@ -3,6 +3,8 @@
 	- Hechos:
 		- AlterColumn
 		- Dropcolumn
+# Expression
+- SELECT strftime('%Y', date_column) AS year FROM your_table;
 # alterColumn:
 - Fallan los índices.
 - Si un campo se transforma de nulo a no nulo, falla. Hay que poner el valor por defecto a los nulos en la consulta de creación de la nueva tabla.
