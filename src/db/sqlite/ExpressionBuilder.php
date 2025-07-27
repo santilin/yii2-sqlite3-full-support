@@ -40,7 +40,7 @@ class ExpressionBuilder implements ExpressionBuilderInterface
 				return "strftime('%Y-%m-%d %H:%M:%f', 'now')";
 			} elseif ($value == "UNIX_TIMESTAMP()") {
 				return "CAST(strftime('%s', 'now') AS INT)";
-			} elseif( preg_match_all("/(.*)\bCONCAT\b\(((?:[^()]|\([^()]*\))*)\)(.*)/", $value, $matches) ) {
+			} elseif (preg_match_all("/(.*)\bCONCAT\b\(((?:[^()]|\([^()]*\))*)\)(.*)/", $value, $matches)) {
 // simple: /(.*)\bCONCAT\b\((.*?)\)(.*)/
 				$concat_params = $matches[2][0];
 				if( preg_match_all(<<<regexp
@@ -73,6 +73,15 @@ regexp
 	// @todo: /\bIF\b\(\s*([^,()]*(?:'[^']*'|"[^"]*")?[^,()]*)\s*,\s*([^,()]*(?:'[^']*'|"[^"]*")?[^,()]*)\s*,\s*([^,()]*(?:'[^']*'|"[^"]*")?[^,()]*)\s*\)/
 				$value = "CASE WHEN {$matches[1]} THEN {$matches[2]} ELSE {$matches[3]} END";
 				$might_need_changes = true;
+            } elseif (preg_match_all("/SUBSTRING_INDEX\s*\(\s*([\w\.]+)\s*,\s*['\"]\.\s*['\"]\s*,\s*1\s*\)/i", $value, $matches)) {
+                // Replace MySQL SUBSTRING_INDEX(column, '.', 1) with SQLite expression
+                foreach ($matches[0] as $idx => $fullMatch) {
+                    $column = $matches[1][$idx];
+                    $replacement = "(CASE WHEN instr($column, '.') > 0 THEN substr($column, 1, instr($column, '.') - 1) ELSE $column END)";
+                    // Replace the found substring in $value
+                    $value = str_replace($fullMatch, $replacement, $value);
+                }
+                $might_need_changes = true;
 			} else {
 				return $value;
 			}
