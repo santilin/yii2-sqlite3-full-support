@@ -547,7 +547,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$this->setForeignKeysState(true);
 		}
 		$savepoint = uniqid('drop_column_');
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') where name <> :column order by cid asc", ['column' => $column])->queryScalar();
+		if ($schema) {
+			$schema = $this->unquoteTableName($schema);
+			if (substr($schema, -1) === '.') {
+				$schema = substr($schema, 0, -1);
+			}
+			$schema = ", '$schema'";
+		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info('{$this->unquoteTableName($tableName)}$schema') where name <> :column order by cid asc", ['column' => $column])->queryScalar();
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -673,7 +680,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		}
 		$return_queries = [];
 		// https://sqlite.org/forum/info/143b3dca07642399
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
+		if ($schema) {
+			$schema = $this->unquoteTableName($schema);
+			if (substr($schema, -1) === '.') {
+				$schema = substr($schema, 0, -1);
+			}
+			$schema = ", '$schema'";
+		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info('{$this->unquoteTableName($tableName)}'$schema) order by cid asc")->queryScalar();
 		if ($this->foreignKeysState()) {
 			$this->setForeignKeysState(false);
 			if ($this->foreignKeysState()) {
@@ -769,7 +783,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$foreign_found) {
 			throw new InvalidParamException("foreign key constraint '$name' not found in table '$tableName'");
 		}
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
+		if ($schema) {
+			$schema = $this->unquoteTableName($schema);
+			if (substr($schema, -1) === '.') {
+				$schema = substr($schema, 0, -1);
+			}
+			$schema = ", '$schema'";
+		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info('{$this->unquoteTableName($tableName)}'$schema) order by cid asc")->queryScalar();
 		if ($this->foreignKeysState()) {
 			$this->setForeignKeysState(false);
 			if ($this->foreignKeysState()) {
@@ -887,7 +908,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 			$this->setForeignKeysState(true);
 		}
 		$savepoint = uniqid('alter_column_');
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
+		if ($schema) {
+			$schema = $this->unquoteTableName($schema);
+			if (substr($schema, -1) === '.') {
+				$schema = substr($schema, 0, -1);
+			}
+			$schema = ", '$schema'";
+		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info('{$this->unquoteTableName($tableName)}$schema') order by cid asc")->queryScalar();
 		$return_queries[] = "SAVEPOINT $savepoint";
 		$return_queries[] = "CREATE TEMPORARY TABLE " . $this->db->quoteTableName($tmp_table_name) . " AS SELECT * FROM $quoted_tablename";
 		$return_queries[] = "DROP TABLE $quoted_tablename";
@@ -926,7 +954,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$fields_definitions_tokens = $this->getFieldDefinitionsTokens($unquoted_tablename);
 		$ddl_fields_defs = $fields_definitions_tokens->getSql();
 		$ddl_fields_defs .= ", CONSTRAINT " . $this->db->quoteTableName($name) . " PRIMARY KEY (" . join(",", (array)$columns) . ")";
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from {$schema}pragma_table_info('{$this->unquoteTableName($tableName)}') order by cid asc")->queryScalar();
+		if ($schema) {
+			$schema = $this->unquoteTableName($schema);
+			if (substr($schema, -1) === '.') {
+				$schema = substr($schema, 0, -1);
+			}
+			$schema = ", '$schema'";
+		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info('{$this->unquoteTableName($tableName)}$schema') order by cid asc")->queryScalar();
 		if ($this->foreignKeysState()) {
 			$this->setForeignKeysState(false);
 			if ($this->foreignKeysState()) {
@@ -1019,7 +1054,14 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		if (!$primary_found) {
 			throw new InvalidParamException("primary key constraint '$name' not found in table '$tableName'");
 		}
-		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info where arg='$unquoted_tablename' order by cid asc")->queryScalar();
+		if ($schema) {
+			$schema = $this->unquoteTableName($schema);
+			if (substr($schema, -1) === '.') {
+				$schema = substr($schema, 0, -1);
+			}
+			$schema = ", '$schema'";
+		}
+		$select_without_hidden_fields = $this->db->createCommand("select group_concat(name, ', ') from pragma_table_info('{$this->unquoteTableName($tableName)}$schema') order by cid asc")->queryScalar();
 		if ($this->foreignKeysState()) {
 			$this->setForeignKeysState(false);
 			if ($this->foreignKeysState()) {
