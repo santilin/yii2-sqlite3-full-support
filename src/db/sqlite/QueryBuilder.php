@@ -718,6 +718,7 @@ class QueryBuilder extends \yii\db\QueryBuilder
     {
         // Simulate ALTER TABLE ... DROP FOREIGN KEY ...
         $return_queries = [];
+		$schema = '';
 		/// @todo warn about triggers
 		/// @todo get create table additional info
         $ddl_fields_def = '';
