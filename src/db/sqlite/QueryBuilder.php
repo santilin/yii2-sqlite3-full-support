@@ -315,8 +315,12 @@ class QueryBuilder extends \yii\db\QueryBuilder
 		$double_quoted_skip_column = '"' . $skipColumn . '"';
 		if ($newColumn == null ) {
 			// Skip indexes which contain this column
-			foreach( $indexes as $key => $index ) {
-				$code = (new SqlTokenizer($index["sql"]))->tokenize();
+			foreach ($indexes as $key => $index) {
+				if (empty($index['sql'])) {
+					unset($indexes[$key]);
+					continue;
+				}
+				$code = (new SqlTokenizer($index['sql']))->tokenize();
 				$pattern = (new SqlTokenizer('any CREATE any INDEX any ON any()'))->tokenize();
 				// Extract the list of fields of this index
 				if (!$code[0]->matches($pattern, 0, $firstMatchIndex, $lastMatchIndex)) {
