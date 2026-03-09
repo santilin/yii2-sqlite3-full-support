@@ -82,6 +82,18 @@ regexp
                     $value = str_replace($fullMatch, $replacement, $value);
                 }
                 $might_need_changes = true;
+			} elseif (preg_match('/\bYEAR\s*\(\s*([^)]+)\s*\)/i', $value, $matches)) {
+				// YEAR(col)  -> CAST(strftime('%Y', col) AS INTEGER)
+				$column = $matches[1];
+				$replacement = "CAST(strftime('%Y', {$column}) AS INTEGER)";
+				$value = preg_replace('/\bYEAR\s*\(\s*([^)]+)\s*\)/i', $replacement, $value);
+				$might_need_changes = true;
+			} elseif (preg_match('/\bMONTH\s*\(\s*([^)]+)\s*\)/i', $value, $matches)) {
+				// MONTH(col) -> CAST(strftime('%m', col) AS INTEGER)
+				$column = $matches[1];
+				$replacement = "CAST(strftime('%m', {$column}) AS INTEGER)";
+				$value = preg_replace('/\bMONTH\s*\(\s*([^)]+)\s*\)/i', $replacement, $value);
+				$might_need_changes = true;
 			} else {
 				return $value;
 			}
