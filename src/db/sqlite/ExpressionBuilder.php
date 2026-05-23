@@ -63,6 +63,9 @@ regexp
 					$value = $matches[1][0] . join('||', $sqlite_concat_params) . $matches[3][0];
 					$might_need_changes = true;
 				}
+			} elseif (preg_match('/\bJSON_ARRAYAGG\s*\(\s*((?:[^()]|\([^()]*\))*)\s*\)/i', $value)) {
+				$value = preg_replace('/\bJSON_ARRAYAGG\s*\(\s*((?:[^()]|\([^()]*\))*)\s*\)/i', 'json_group_array($1)', $value);
+				$might_need_changes = true;
 			} else if (preg_match_all("/(.*)\bGROUP_CONCAT\b\((.*?)\bSEPARATOR\b(.*)\)/", $value, $matches) ) {
 				$value = "GROUP_CONCAT({$matches[2][0]}, {$matches[3][0]})";
 				$might_need_changes = true;
