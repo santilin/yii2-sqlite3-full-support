@@ -265,7 +265,14 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     protected function findConstraints($table)
     {
-        $sql = $this->pragma('FOREIGN_KEY_LIST', $table->name);
+        // El esquema hay que pasarlo, como en findColumns: $table->name viene ya
+        // sin él, y sqlite resolvería el nombre contra la primera base adjunta que
+        // tenga una tabla así, devolviendo las claves ajenas de otra tabla.
+        if ($table->schemaName) {
+            $sql = $this->pragma("{$table->schemaName}.FOREIGN_KEY_LIST", $table->name);
+        } else {
+            $sql = $this->pragma('FOREIGN_KEY_LIST', $table->name);
+        }
         $keys = $this->db->createCommand($sql)->queryAll();
         // @sct Reverse so that truncateTable works in migrations
         foreach (array_reverse($keys, true) as $key) {
@@ -296,13 +303,23 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
      */
     public function findUniqueIndexes($table)
     {
-        $sql = $this->pragma('index_list', $table->name);
+        // Igual que en findColumns: sin el esquema se listarían los índices de otra
+        // tabla del mismo nombre en otra base adjunta.
+        if ($table->schemaName) {
+            $sql = $this->pragma("{$table->schemaName}.index_list", $table->name);
+        } else {
+            $sql = $this->pragma('index_list', $table->name);
+        }
         $indexes = $this->db->createCommand($sql)->queryAll();
         $uniqueIndexes = [];
 
         foreach ($indexes as $index) {
             $indexName = $index['name'];
-            $indexInfo = $this->db->createCommand('PRAGMA index_info(' . $this->quoteValue($index['name']) . ')')->queryAll();
+            $index_info_pragma = $table->schemaName
+                ? $this->quoteTableName($table->schemaName) . '.index_info'
+                : 'index_info';
+            $indexInfo = $this->db->createCommand("PRAGMA $index_info_pragma("
+                . $this->quoteValue($index['name']) . ')')->queryAll();
 
             if ($index['unique']) {
                 $uniqueIndexes[$indexName] = [];
@@ -418,6 +435,7 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
     private function loadTableConstraints($tableName, $returnType)
     {
         $sql = $this->pragma('index_list', $tableName);
+        $indexes = $this->db->createCommand($sql)->queryAll();
         $indexes = $this->normalizePdoRowKeyCase($indexes, true);
         $tableColumns = null;
         if (!empty($indexes) && !isset($indexes[0]['origin'])) {
@@ -432,8 +450,15 @@ class Schema extends \yii\db\Schema implements ConstraintFinderInterface
             'indexes' => [],
             'uniques' => [],
         ];
+        // Los nombres de índice también pertenecen a un esquema concreto
+        $index_info_pragma = 'INDEX_INFO';
+        if (strpos($tableName, '.') !== false) {
+            list($dbName, ) = $this->getTableNameParts($tableName);
+            $index_info_pragma = $this->quoteTableName($dbName) . '.INDEX_INFO';
+        }
         foreach ($indexes as $index) {
-            $columns = $this->db->createCommand('PRAGMA INDEX_INFO (' . $this->quoteValue($index['name']) . ')')->queryAll();
+            $columns = $this->db->createCommand("PRAGMA $index_info_pragma ("
+                . $this->quoteValue($index['name']) . ')')->queryAll();
             $columns = $this->normalizePdoRowKeyCase($columns, true);
             ArrayHelper::multisort($columns, 'seqno', SORT_ASC, SORT_NUMERIC);
             if ($tableColumns !== null) {

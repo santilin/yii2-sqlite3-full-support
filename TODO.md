@@ -1,3 +1,25 @@
+# Bases adjuntas (ATTACH): las pragma tienen que llevar el esquema
+	Sin el esquema, sqlite resuelve el nombre contra la primera base adjunta que
+	tenga una tabla (o un índice) que se llame igual, así que se devuelve la
+	información de otra tabla, o ninguna. Se veía con `usuarios_cepaim.usuarios`,
+	que acababa leyendo `main.usuarios`: `getTableSchema()->foreignKeys` salía
+	vacío y no había forma de saber qué clave ajena fallaba.
+	- Hechos:
+		- Schema::findConstraints: `PRAGMA esquema.foreign_key_list(tabla)`,
+		  como ya hacía findColumns. `$table->name` viene sin esquema; está en
+		  `$table->schemaName`.
+		- Schema::findUniqueIndexes: igual con `index_list` y con el `index_info`
+		  de cada índice.
+		- Schema::loadTableConstraints: el `INDEX_INFO` de cada índice.
+	- Por repasar:
+		- Los nombres de las tablas referenciadas que devuelve `foreign_key_list`
+		  siguen viniendo sin esquema, aunque están en el mismo que la tabla. Quien
+		  los use para consultar tiene que cualificarlos a mano.
+		- QueryBuilder: revisar si las consultas que recrean tablas (alterColumn,
+		  dropColumn...) tienen el mismo problema con las bases adjuntas.
+# Schema::loadTableConstraints
+	- Hecho: no llegaba a ejecutar la consulta de `index_list`; construía el sql
+	  en $sql y luego usaba $indexes, que no existía.
 # Refactor:
 	- AlterColumn es el modelo
 	- Hechos:
